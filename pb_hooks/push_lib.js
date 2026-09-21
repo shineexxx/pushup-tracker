@@ -43,8 +43,10 @@ function runReminders() {
   for (const st of all) {
     const local = new Date(now + (st.getInt("tz_offset_min") || 0) * 60000);
     const hhmm = `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}`;
-    const isMain = hhmm === st.getString("remind_time");
-    const isLate = hhmm === st.getString("remind_late");
+    const weekend = local.getUTCDay() === 0 || local.getUTCDay() === 6;
+    // пустое время ни с чем не совпадёт — так напоминание выключается
+    const isMain = hhmm === st.getString(weekend ? "remind_time_we" : "remind_time");
+    const isLate = hhmm === st.getString(weekend ? "remind_late_we" : "remind_late");
     if (!isMain && !isLate) continue;
 
     const date = `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`;

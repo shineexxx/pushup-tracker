@@ -162,6 +162,7 @@ header.top .sub { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .plan th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; padding: 0 0 6px; }
 .plan td { padding: 8px 0; border-top: 1px solid var(--line); }
 .plan tr.cur td { font-weight: 700; color: var(--accent); }
+.sub-h { font-size: 15px; font-weight: 700; margin: 14px 0 2px; }
 .stack { display: grid; gap: 10px; }
 .note { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
 
@@ -295,8 +296,12 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
       <h2>Напоминания</h2>
       <p class="note" id="push-note" style="margin:0 0 12px"></p>
       <div id="push-times" hidden>
-        <div class="form-row"><label for="r-time">Если ещё не начинал</label><input class="field" id="r-time" type="time"></div>
-        <div class="form-row"><label for="r-late">Последний шанс</label><input class="field" id="r-late" type="time"></div>
+        <h3 class="sub-h">Будни</h3>
+        <div class="form-row"><label for="r-time">Напоминание</label><input class="field" id="r-time" type="time" data-remind="remind_time"></div>
+        <div class="form-row"><label for="r-late">Последний шанс</label><input class="field" id="r-late" type="time" data-remind="remind_late"></div>
+        <h3 class="sub-h">Выходные</h3>
+        <div class="form-row"><label for="r-time-we">Напоминание</label><input class="field" id="r-time-we" type="time" data-remind="remind_time_we"></div>
+        <div class="form-row"><label for="r-late-we">Последний шанс</label><input class="field" id="r-late-we" type="time" data-remind="remind_late_we"></div>
       </div>
       <div class="stack" style="margin-top:8px">
         <button class="btn wide" type="button" id="btn-push" hidden></button>
@@ -370,6 +375,8 @@ const PLAN = {
   minReps: 10,          // «плохой день»: столько повторов хватает, чтобы день попал в цепочку
   testEveryDays: 28,    // тест на максимум раз в 4 недели
   heavy: { easyReps: 15, minSets: 4, stepKg: 2 }, // правило «+2 кг»
+  // Времена напоминаний по умолчанию (будни / выходные), дальше меняются в настройках
+  reminders: { remind_time: '19:00', remind_late: '22:00', remind_time_we: '12:00', remind_late_we: '22:00' },
   finalGoal: 'Цель к 12-й неделе: 50 подряд без веса или 20 с рюкзаком 15 кг.',
 
   types: {
@@ -679,7 +686,8 @@ async function enablePush() {
     const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(publicKey) });
     await saveSub(sub);
     const s = state.settings;
-    await updateSettings({ remind_enabled: true, remind_time: s.remind_time || '19:00', remind_late: s.remind_late || '22:00', tz_offset_min: tzOffset() }, true);
+    const fresh = !s.remind_time && !s.remind_late && !s.remind_time_we && !s.remind_late_we;
+    await updateSettings({ remind_enabled: true, tz_offset_min: tzOffset(), ...(fresh ? PLAN.reminders : {}) }, true);
     state.pushOn = true;
     toast('Напоминания включены');
   } catch (e) {
@@ -726,9 +734,8 @@ function renderPush() {
     btn.hidden = true;
     note.textContent = 'Уведомления запрещены. Разреши их в настройках устройства для этого приложения и вернись сюда.';
   } else if (on) {
-    note.textContent = 'Первое напоминание приходит, если за день ещё нет подходов. «Последний шанс» — если день всё ещё не засчитан в цепочку (в воскресенье не приходит).';
-    if (document.activeElement !== $('r-time')) $('r-time').value = s.remind_time || '';
-    if (document.activeElement !== $('r-late')) $('r-late').value = s.remind_late || '';
+    note.textContent = 'Первое напоминание приходит, если за день ещё нет подходов. «Последний шанс» — если день всё ещё не засчитан в цепочку (в воскресенье не приходит: это день отдыха). Чтобы выключить напоминание, очисти время.';
+    document.querySelectorAll('[data-remind]').forEach(i => { if (document.activeElement !== i) i.value = s[i.dataset.remind] || ''; });
   } else {
     note.textContent = 'Трекер напомнит, если к выбранному времени ты ещё не отжимался.';
   }
@@ -1026,8 +1033,7 @@ $('settings-form').addEventListener('submit', e => {
 });
 $('btn-push').addEventListener('click', () => state.pushOn ? disablePush() : enablePush());
 $('btn-push-test').addEventListener('click', testPush);
-$('r-time').addEventListener('change', e => updateSettings({ remind_time: e.target.value }));
-$('r-late').addEventListener('change', e => updateSettings({ remind_late: e.target.value }));
+document.querySelectorAll('[data-remind]').forEach(i => i.addEventListener('change', () => updateSettings({ [i.dataset.remind]: i.value })));
 $('btn-export').addEventListener('click', exportData);
 $('btn-import').addEventListener('click', () => $('import-file').click());
 $('import-file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importData(f); });
