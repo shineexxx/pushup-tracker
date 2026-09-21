@@ -2,3 +2,5 @@
 /pocketbase
 /pb_data/
 .DS_Store
+/notifier/node_modules/
+/notifier/vapid.json

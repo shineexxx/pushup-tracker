@@ -9,7 +9,8 @@
         "--http=127.0.0.1:8090",
         "--dir=/Users/arseny/Projects/pushup-tracker/pb_data",
         "--migrationsDir=/Users/arseny/Projects/pushup-tracker/pb_migrations",
-        "--publicDir=/Users/arseny/Projects/pushup-tracker/pb_public"
+        "--publicDir=/Users/arseny/Projects/pushup-tracker/pb_public",
+        "--hooksDir=/Users/arseny/Projects/pushup-tracker/pb_hooks"
       ],
       "port": 8090
     },
@@ -21,7 +22,8 @@
         "--http=127.0.0.1:8091",
         "--dir=/private/tmp/claude-501/-Users-arseny-Projects-pushup-tracker/6de15842-952f-4cb1-9059-eb857d40f51d/scratchpad/pb_data",
         "--migrationsDir=/Users/arseny/Projects/pushup-tracker/pb_migrations",
-        "--publicDir=/Users/arseny/Projects/pushup-tracker/pb_public"
+        "--publicDir=/Users/arseny/Projects/pushup-tracker/pb_public",
+        "--hooksDir=/Users/arseny/Projects/pushup-tracker/pb_hooks"
       ],
       "port": 8091
     }

@@ -1,5 +1,5 @@
 // Оболочка приложения доступна без сети: сначала сеть, при ошибке — кэш. API не кэшируется.
-const CACHE = 'pushups-v1';
+const CACHE = 'pushups-v2';
 const SHELL = ['./', 'pocketbase.umd.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -20,4 +20,19 @@ self.addEventListener('fetch', e => {
       return res;
     }).catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match('./')))
   );
+});
+
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data.json(); } catch {}
+  e.waitUntil(self.registration.showNotification(d.title || 'Отжимания', {
+    body: d.body || '', tag: d.tag || 'pushups', icon: 'icon-192.png', badge: 'icon-192.png', data: { url: d.url || './' },
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    for (const c of list) if ('focus' in c) return c.focus();
+    return clients.openWindow(e.notification.data.url || './');
+  }));
 });

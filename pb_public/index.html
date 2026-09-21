@@ -292,6 +292,18 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
       <button class="btn ghost wide" type="button" id="btn-test">Записать результат теста</button>
     </section>
     <section class="card">
+      <h2>Напоминания</h2>
+      <p class="note" id="push-note" style="margin:0 0 12px"></p>
+      <div id="push-times" hidden>
+        <div class="form-row"><label for="r-time">Если ещё не начинал</label><input class="field" id="r-time" type="time"></div>
+        <div class="form-row"><label for="r-late">Последний шанс</label><input class="field" id="r-late" type="time"></div>
+      </div>
+      <div class="stack" style="margin-top:8px">
+        <button class="btn wide" type="button" id="btn-push" hidden></button>
+        <button class="btn ghost wide" type="button" id="btn-push-test" hidden>Прислать тестовое</button>
+      </div>
+    </section>
+    <section class="card">
       <h2>План по неделям</h2>
       <table class="plan" id="plan-table"></table>
       <p class="note" id="plan-goal"></p>
@@ -441,7 +453,7 @@ pb.autoCancellation(false);
 const state = {
   sets: [], tests: [], settings: null,
   queue: store.get('pt_queue', []),   // подходы, записанные без сети
-  tab: 'today', manualType: null, today: localDate(), online: true, selDay: null,
+  tab: 'today', manualType: null, pushOn: false, today: localDate(), online: true, selDay: null,
 };
 const isNetErr = e => e && (e.status === 0 || e.isAbort);
 const uid = () => pb.authStore.record && pb.authStore.record.id;
@@ -517,6 +529,7 @@ async function loadAll() {
     }
     Object.assign(state, { sets, tests, settings, online: true });
     mergeQueue(); saveCache();
+    if (settings.remind_enabled && settings.tz_offset_min !== tzOffset()) updateSettings({ tz_offset_min: tzOffset() }, true);
   } catch (e) {
     if (e.status === 401 || e.status === 403) return logout();
     state.online = false;
@@ -623,6 +636,102 @@ function logout() {
   pb.authStore.clear(); store.del('pt_cache');
   Object.assign(state, { sets: [], tests: [], settings: null });
   showLogin();
+}
+
+/* ============================ Напоминания (web push) ============================ */
+const tzOffset = () => -new Date().getTimezoneOffset();
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const isStandalone = () => navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const b64uToBytes = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+async function currentSub() {
+  if (!pushSupported()) return null;
+  const reg = await navigator.serviceWorker.ready;
+  return reg.pushManager.getSubscription();
+}
+async function saveSub(sub) {
+  const j = sub.toJSON();
+  const data = { user: uid(), endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, device: navigator.userAgent.slice(0, 200) };
+  try {
+    const ex = await pb.collection('push_subs').getFirstListItem(pb.filter('endpoint = {:e}', { e: j.endpoint }));
+    await pb.collection('push_subs').update(ex.id, data);
+  } catch (e) {
+    if (e.status !== 404) throw e;
+    await pb.collection('push_subs').create(data);
+  }
+}
+async function refreshPush() {
+  try {
+    const sub = await currentSub();
+    state.pushOn = !!sub && Notification.permission === 'granted';
+    if (state.pushOn) await saveSub(sub); // iOS может сменить адрес подписки — держим сервер в курсе
+  } catch { /* нет сети — оставляем как есть */ }
+  if (state.tab === 'settings') renderSettings();
+}
+async function enablePush() {
+  // requestPermission должен вызываться прямо из обработчика нажатия
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') return toast('Уведомления запрещены. Разреши их в настройках iPhone для этого приложения');
+  try {
+    const { publicKey } = await pb.send('/api/push/key', {});
+    if (!publicKey) return toast('На сервере не настроены ключи уведомлений');
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(publicKey) });
+    await saveSub(sub);
+    const s = state.settings;
+    await updateSettings({ remind_enabled: true, remind_time: s.remind_time || '19:00', remind_late: s.remind_late || '22:00', tz_offset_min: tzOffset() }, true);
+    state.pushOn = true;
+    toast('Напоминания включены');
+  } catch (e) {
+    toast(isNetErr(e) ? 'Нет сети — включить не получилось' : 'Не удалось включить уведомления');
+  }
+  renderSettings();
+}
+async function disablePush() {
+  try {
+    const sub = await currentSub();
+    if (sub) {
+      const rec = await pb.collection('push_subs').getFirstListItem(pb.filter('endpoint = {:e}', { e: sub.endpoint })).catch(() => null);
+      if (rec) await pb.collection('push_subs').delete(rec.id);
+      await sub.unsubscribe();
+    }
+    const left = await pb.collection('push_subs').getList(1, 1);
+    if (!left.totalItems) await updateSettings({ remind_enabled: false }, true);
+    state.pushOn = false;
+    toast('Напоминания на этом устройстве выключены');
+  } catch (e) {
+    toast(isNetErr(e) ? 'Нет сети — выключить не получилось' : 'Не удалось выключить');
+  }
+  renderSettings();
+}
+async function testPush() {
+  try {
+    const r = await pb.send('/api/push/test', { method: 'POST' });
+    toast(r.sent ? 'Отправлено — уведомление придёт через пару секунд' : 'Не удалось отправить, попробуй выключить и включить заново');
+  } catch (e) { toast(isNetErr(e) ? 'Нет сети' : 'Сервер не смог отправить уведомление'); }
+}
+function renderPush() {
+  const s = state.settings, note = $('push-note'), btn = $('btn-push');
+  const on = state.pushOn;
+  $('push-times').hidden = !on; $('btn-push-test').hidden = !on;
+  btn.hidden = false;
+  btn.className = on ? 'btn danger wide' : 'btn wide';
+  btn.textContent = on ? 'Выключить на этом устройстве' : 'Включить напоминания';
+  if (!pushSupported()) {
+    btn.hidden = true;
+    note.textContent = isIOS() && !isStandalone()
+      ? 'На iPhone уведомления работают только из приложения на экране «Домой»: в Safari нажми «Поделиться» → «На экран „Домой“», открой трекер оттуда и включи напоминания здесь.'
+      : 'Этот браузер не поддерживает уведомления.';
+  } else if (Notification.permission === 'denied') {
+    btn.hidden = true;
+    note.textContent = 'Уведомления запрещены. Разреши их в настройках устройства для этого приложения и вернись сюда.';
+  } else if (on) {
+    note.textContent = 'Первое напоминание приходит, если за день ещё нет подходов. «Последний шанс» — если день всё ещё не засчитан в цепочку (в воскресенье не приходит).';
+    if (document.activeElement !== $('r-time')) $('r-time').value = s.remind_time || '';
+    if (document.activeElement !== $('r-late')) $('r-late').value = s.remind_late || '';
+  } else {
+    note.textContent = 'Трекер напомнит, если к выбранному времени ты ещё не отжимался.';
+  }
 }
 
 /* ============================ Рендер: сегодня ============================ */
@@ -774,6 +883,7 @@ function renderSettings() {
   const left = PLAN.testEveryDays - diffDays(lastTestDate(), state.today);
   const last = state.tests.length ? `Последний тест: ${fmtDate(lastTestDate())}. ` : 'Тестов ещё не было. ';
   $('test-note').textContent = last + (left > 0 ? `Следующий через ${left} ${plural(left, 'день', 'дня', 'дней')}.` : 'Пора делать следующий.');
+  renderPush();
   $('account').textContent = pb.authStore.record ? `Вход выполнен: ${pb.authStore.record.email}` : '';
 }
 
@@ -914,6 +1024,10 @@ $('settings-form').addEventListener('submit', e => {
   document.activeElement.blur();
   updateSettings({ start_date, current_max, backpack_kg: kg > 0 ? kg : null });
 });
+$('btn-push').addEventListener('click', () => state.pushOn ? disablePush() : enablePush());
+$('btn-push-test').addEventListener('click', testPush);
+$('r-time').addEventListener('change', e => updateSettings({ remind_time: e.target.value }));
+$('r-late').addEventListener('change', e => updateSettings({ remind_late: e.target.value }));
 $('btn-export').addEventListener('click', exportData);
 $('btn-import').addEventListener('click', () => $('import-file').click());
 $('import-file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importData(f); });
@@ -948,7 +1062,7 @@ function start() {
   $('login').hidden = true; $('app').hidden = false; $('tabs').hidden = false;
   // Продлеваем долгую сессию при каждом открытии
   pb.collection('users').authRefresh().catch(e => { if (e.status === 401 || e.status === 403) logout(); });
-  loadAll();
+  loadAll().then(refreshPush);
 }
 pb.authStore.isValid ? start() : showLogin();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

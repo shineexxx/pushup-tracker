@@ -1,0 +1,10 @@
+{
+  "name": "pushups-notifier",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Локальный отправитель web push для трекера отжиманий",
+  "main": "server.js",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}
