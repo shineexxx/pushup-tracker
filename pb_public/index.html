@@ -1,0 +1,957 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Отжимания</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Отжимания">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#f4f2ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121110" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f4f2ee;
+  --card: #ffffff;
+  --text: #1b1917;
+  --muted: #78716a;
+  --line: #e6e2db;
+  --accent: #e2470f;
+  --accent-text: #ffffff;
+  --accent-soft: #fdebe3;
+  --ok: #2f8f4e;
+  --danger: #c53030;
+  --cell: #e9e5de;
+  --shadow: 0 1px 2px rgba(30, 20, 10, .06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121110;
+    --card: #1d1b19;
+    --text: #f3efe9;
+    --muted: #9c948a;
+    --line: #2d2a27;
+    --accent: #ff6a33;
+    --accent-text: #1a0d06;
+    --accent-soft: #33190e;
+    --ok: #5cc47f;
+    --danger: #ff6b6b;
+    --cell: #292623;
+    --shadow: none;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body {
+  font: 16px/1.4 -apple-system, BLINKMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; padding: 0; touch-action: manipulation; }
+[hidden] { display: none !important; }
+.num { font-variant-numeric: tabular-nums; }
+
+#app {
+  max-width: 520px; margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 12px) calc(env(safe-area-inset-right) + 16px)
+           calc(env(safe-area-inset-bottom) + 84px) calc(env(safe-area-inset-left) + 16px);
+}
+header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 2px 12px; }
+header.top h1 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -.02em; }
+header.top .sub { color: var(--muted); font-size: 14px; white-space: nowrap; }
+
+.card { background: var(--card); border-radius: 20px; padding: 16px; box-shadow: var(--shadow); margin-bottom: 12px; }
+.card h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+
+/* Сегодня */
+.hero .daytype { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.hero .daytype span:first-child { color: var(--accent); }
+.hero .daytype span:last-child { color: var(--muted); }
+.hero .count { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 10px; }
+.hero .count b { font-size: 64px; line-height: 1; font-weight: 800; letter-spacing: -.04em; }
+.hero .count span { font-size: 20px; color: var(--muted); font-weight: 600; }
+.hero .count .done-mark { margin-left: auto; color: var(--ok); font-size: 15px; font-weight: 700; }
+.bar { height: 10px; border-radius: 5px; background: var(--cell); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 5px; background: var(--accent); transition: width .35s cubic-bezier(.2, .8, .2, 1); }
+.bar i.full { background: var(--ok); }
+.hero .hint { margin: 12px 0 0; font-size: 15px; color: var(--muted); }
+.hero .hint strong { color: var(--text); font-weight: 600; }
+
+.streaks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.streaks .card { margin: 0; padding: 12px 16px; display: flex; align-items: baseline; gap: 8px; }
+.streaks b { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.streaks span { color: var(--muted); font-size: 13px; line-height: 1.2; }
+
+.banner { border-radius: 16px; padding: 12px 14px; margin-bottom: 12px; background: var(--accent-soft); font-size: 15px; display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.banner button { flex: none; background: var(--accent); color: var(--accent-text); font-weight: 600; font-size: 14px; padding: 8px 12px; border-radius: 10px; }
+.banner.offline { background: var(--cell); color: var(--muted); }
+
+.chips { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 12px; padding: 0 16px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; padding: 9px 14px; border-radius: 999px; background: var(--cell); font-size: 15px; font-weight: 500; white-space: nowrap; }
+.chip.on { background: var(--text); color: var(--bg); }
+
+.weight { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.weight label { font-size: 15px; }
+.weight small { display: block; color: var(--muted); font-size: 13px; }
+.stepper { display: flex; align-items: center; gap: 4px; }
+.stepper button { width: 44px; height: 44px; border-radius: 12px; background: var(--cell); font-size: 22px; font-weight: 500; }
+.stepper input { width: 64px; height: 44px; text-align: center; border: 0; background: none; font-size: 20px; font-weight: 700; }
+
+.quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+.quick button { height: 76px; border-radius: 18px; background: var(--accent); color: var(--accent-text); font-size: 28px; font-weight: 800; letter-spacing: -.02em; transition: transform .12s ease, filter .12s ease; }
+.quick button:active, .btn:active { transform: scale(.96); filter: brightness(.92); }
+.custom { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+.field { height: 52px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--bg); padding: 0 14px; font-size: 18px; width: 100%; outline: none; -webkit-appearance: none; appearance: none; }
+.field:focus { border-color: var(--accent); }
+.btn { height: 52px; padding: 0 20px; border-radius: 14px; background: var(--text); color: var(--bg); font-weight: 600; font-size: 16px; transition: transform .12s ease, filter .12s ease; }
+.btn.ghost { background: var(--cell); color: var(--text); }
+.btn.danger { background: none; color: var(--danger); }
+.btn.wide { width: 100%; }
+.btn:disabled { opacity: .5; }
+
+.sets { list-style: none; margin: 0; padding: 0; }
+.sets li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.sets li:first-child { border-top: 0; padding-top: 0; }
+.sets li:last-child { padding-bottom: 0; }
+.sets .n { width: 24px; color: var(--muted); font-size: 13px; }
+.sets .main { flex: 1; min-width: 0; }
+.sets .main b { font-size: 20px; font-weight: 700; }
+.sets .main span { color: var(--muted); font-size: 14px; margin-left: 6px; }
+.sets .pend { color: var(--muted); font-size: 12px; }
+.icon-btn { width: 40px; height: 40px; border-radius: 10px; color: var(--muted); display: grid; place-items: center; }
+.icon-btn:active { background: var(--cell); }
+.icon-btn svg { width: 20px; height: 20px; }
+.empty { color: var(--muted); font-size: 15px; margin: 0; }
+
+/* История */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.tiles .card { margin: 0; padding: 14px 16px; }
+.tiles b { display: block; font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
+.tiles span { color: var(--muted); font-size: 13px; }
+.heat { display: grid; grid-template-columns: 30px repeat(7, 1fr) 44px; gap: 5px; align-items: center; font-size: 12px; color: var(--muted); }
+.heat .dow { text-align: center; }
+.heat .cell { aspect-ratio: 1; border-radius: 7px; background: var(--cell); position: relative; }
+.heat .cell.off { opacity: .35; }
+.heat .cell.l1 { background: color-mix(in srgb, var(--accent) 30%, var(--cell)); }
+.heat .cell.l2 { background: color-mix(in srgb, var(--accent) 55%, var(--cell)); }
+.heat .cell.l3 { background: color-mix(in srgb, var(--accent) 80%, var(--cell)); }
+.heat .cell.l4 { background: var(--accent); }
+.heat .cell.today { outline: 2px solid var(--text); outline-offset: 1px; }
+.heat .cell.sel::after { content: ""; position: absolute; inset: 35%; border-radius: 50%; background: var(--card); }
+.heat .sum { text-align: right; font-weight: 600; color: var(--text); font-size: 13px; }
+.heat-info { margin: 12px 0 0; font-size: 14px; color: var(--muted); min-height: 20px; }
+.chart { width: 100%; height: auto; display: block; overflow: visible; }
+.chart .ln { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.chart .dot { fill: var(--card); stroke: var(--accent); stroke-width: 2.5; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart text { fill: var(--muted); font-size: 11px; }
+.chart text.v { fill: var(--text); font-weight: 700; font-size: 12px; }
+
+/* Настройки */
+.form-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+.form-row label { font-size: 15px; }
+.form-row .field { width: 150px; height: 44px; font-size: 16px; text-align: right; }
+.plan { width: 100%; border-collapse: collapse; font-size: 14px; }
+.plan th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; padding: 0 0 6px; }
+.plan td { padding: 8px 0; border-top: 1px solid var(--line); }
+.plan tr.cur td { font-weight: 700; color: var(--accent); }
+.stack { display: grid; gap: 10px; }
+.note { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+
+/* Таб-бар */
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  display: flex; justify-content: center;
+  padding: 8px 16px calc(env(safe-area-inset-bottom) + 8px);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  -webkit-backdrop-filter: saturate(1.6) blur(18px); backdrop-filter: saturate(1.6) blur(18px);
+  border-top: 1px solid var(--line);
+}
+nav.tabs div { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; max-width: 520px; }
+nav.tabs button { padding: 6px 0; font-size: 11px; font-weight: 600; color: var(--muted); display: grid; justify-items: center; gap: 2px; }
+nav.tabs button svg { width: 24px; height: 24px; }
+nav.tabs button.on { color: var(--accent); }
+
+/* Вход */
+#login { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
+#login form { width: 100%; max-width: 340px; display: grid; gap: 12px; }
+#login h1 { font-size: 32px; font-weight: 800; letter-spacing: -.03em; margin: 0 0 8px; }
+#login .err { color: var(--danger); font-size: 14px; min-height: 20px; margin: 0; }
+
+dialog { border: 0; border-radius: 20px; padding: 20px; width: min(360px, calc(100vw - 32px)); background: var(--card); color: var(--text); }
+dialog::backdrop { background: rgba(0, 0, 0, .45); }
+dialog h3 { margin: 0 0 14px; font-size: 18px; }
+dialog .stack { margin-bottom: 14px; }
+dialog .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
+
+#toast {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 92px); transform: translate(-50%, 20px);
+  background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px; font-weight: 500;
+  opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 20; max-width: calc(100vw - 32px); text-align: center;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<section id="login" hidden>
+  <form id="login-form" autocomplete="on">
+    <h1>Отжимания</h1>
+    <input class="field" id="login-email" type="email" name="username" placeholder="Логин (email)" autocomplete="username" autocapitalize="none" required>
+    <input class="field" id="login-pass" type="password" name="password" placeholder="Пароль" autocomplete="current-password" required>
+    <button class="btn wide" type="submit">Войти</button>
+    <p class="err" id="login-err"></p>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <header class="top">
+    <h1 id="title">Сегодня</h1>
+    <div class="sub" id="subtitle"></div>
+  </header>
+
+  <main id="view-today">
+    <div id="banners"></div>
+    <section class="card hero">
+      <div class="daytype"><span id="day-type"></span><span id="day-week"></span></div>
+      <div class="count num"><b id="done">0</b><span id="goal"></span><span class="done-mark" id="done-mark" hidden>Цель взята</span></div>
+      <div class="bar"><i id="bar"></i></div>
+      <p class="hint" id="hint"></p>
+    </section>
+
+    <div class="streaks">
+      <div class="card"><b class="num" id="streak">0</b><span id="streak-label">дней<br>подряд</span></div>
+      <div class="card"><b class="num" id="streak-best">0</b><span>рекорд<br>цепочки</span></div>
+    </div>
+
+    <section class="card">
+      <div class="chips" id="chips"></div>
+      <div class="weight" id="weight-row" hidden>
+        <label>Вес рюкзака, кг<small id="weight-plan"></small></label>
+        <div class="stepper">
+          <button type="button" data-w="-1" aria-label="Меньше">−</button>
+          <input class="num" id="weight" type="text" inputmode="decimal" aria-label="Вес рюкзака">
+          <button type="button" data-w="1" aria-label="Больше">+</button>
+        </div>
+      </div>
+      <div class="quick" id="quick"></div>
+      <form class="custom" id="custom-form">
+        <input class="field num" id="custom-reps" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="Своё число" aria-label="Своё число повторов">
+        <button class="btn" type="submit">Записать</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Подходы сегодня</h2>
+      <ul class="sets" id="sets"></ul>
+    </section>
+  </main>
+
+  <main id="view-history" hidden>
+    <div class="tiles">
+      <div class="card"><b class="num" id="sum-week">0</b><span>за эту неделю</span></div>
+      <div class="card"><b class="num" id="sum-all">0</b><span id="sum-all-label">за всё время</span></div>
+    </div>
+    <section class="card">
+      <h2>Календарь</h2>
+      <div class="heat" id="heat"></div>
+      <p class="heat-info" id="heat-info"></p>
+    </section>
+    <section class="card">
+      <h2>Максимум за подход</h2>
+      <div id="chart-max"></div>
+    </section>
+    <section class="card">
+      <h2>Вес рюкзака</h2>
+      <div id="chart-weight"></div>
+    </section>
+  </main>
+
+  <main id="view-settings" hidden>
+    <section class="card">
+      <h2>Программа</h2>
+      <form id="settings-form">
+        <div class="form-row"><label for="s-start">Дата старта</label><input class="field" id="s-start" type="date" required></div>
+        <div class="form-row"><label for="s-max">Текущий максимум</label><input class="field num" id="s-max" type="text" inputmode="numeric" pattern="[0-9]*" required></div>
+        <div class="form-row"><label for="s-weight">Вес рюкзака, кг</label><input class="field num" id="s-weight" type="text" inputmode="decimal"></div>
+        <button class="btn wide" type="submit" style="margin-top:8px">Сохранить</button>
+      </form>
+    </section>
+    <section class="card">
+      <h2>Тест на максимум</h2>
+      <p class="note" id="test-note" style="margin:0 0 12px"></p>
+      <button class="btn ghost wide" type="button" id="btn-test">Записать результат теста</button>
+    </section>
+    <section class="card">
+      <h2>План по неделям</h2>
+      <table class="plan" id="plan-table"></table>
+      <p class="note" id="plan-goal"></p>
+    </section>
+    <section class="card">
+      <h2>Данные</h2>
+      <div class="stack">
+        <button class="btn ghost wide" type="button" id="btn-export">Экспорт в JSON</button>
+        <button class="btn ghost wide" type="button" id="btn-import">Импорт из JSON</button>
+        <input type="file" id="import-file" accept="application/json,.json" hidden>
+        <button class="btn danger wide" type="button" id="btn-logout">Выйти</button>
+      </div>
+      <p class="note" id="account"></p>
+    </section>
+  </main>
+</div>
+
+<nav class="tabs" id="tabs" hidden><div>
+  <button data-tab="today" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Сегодня</button>
+  <button data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>История</button>
+  <button data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h10M18 18h2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg>Настройки</button>
+</div></nav>
+
+<dialog id="dlg-edit">
+  <form method="dialog" id="edit-form">
+    <h3>Исправить подход</h3>
+    <div class="stack">
+      <input class="field num" id="e-reps" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="Повторы" required>
+      <select class="field" id="e-type"></select>
+      <input class="field num" id="e-weight" type="text" inputmode="decimal" placeholder="Вес рюкзака, кг">
+    </div>
+    <div class="actions">
+      <button class="btn ghost" type="button" data-close>Отмена</button>
+      <button class="btn" type="submit">Сохранить</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-test">
+  <form method="dialog" id="test-form">
+    <h3>Тест на максимум</h3>
+    <p>Один подход классических до отказа. Результат пересчитает дни «Объём» и «Лёгкий» и запишется как подход.</p>
+    <div class="stack">
+      <input class="field num" id="t-reps" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="Сколько получилось" required>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" type="button" data-close>Отмена</button>
+      <button class="btn" type="submit">Записать</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status"></div>
+
+<script src="pocketbase.umd.js"></script>
+<script>
+/* ===================================================================
+   ПЛАН ТРЕНИРОВОК — правится здесь, логика ниже от него не зависит.
+   c = { max: текущий максимум, kg: вес рюкзака, goal: цель недели }
+   =================================================================== */
+const PLAN = {
+  defaults: { start_date: '2026-09-21', current_max: 30 },
+  quick: [10, 15, 20],
+  minReps: 10,          // «плохой день»: столько повторов хватает, чтобы день попал в цепочку
+  testEveryDays: 28,    // тест на максимум раз в 4 недели
+  heavy: { easyReps: 15, minSets: 4, stepKg: 2 }, // правило «+2 кг»
+  finalGoal: 'Цель к 12-й неделе: 50 подряд без веса или 20 с рюкзаком 15 кг.',
+
+  types: {
+    classic:  { name: 'Классические',  note: 'грудь и трицепс' },
+    weighted: { name: 'С рюкзаком',    note: 'масса' },
+    decline:  { name: 'Ноги выше',     note: 'верх груди и плечи' },
+    diamond:  { name: 'Алмазные',      note: 'трицепс' },
+    wide:     { name: 'Широкие',       note: 'грудь' },
+    slow:     { name: 'Медленные',     note: '3 сек вниз, пауза' },
+  },
+
+  dayTypes: {
+    heavy: {
+      name: 'Тяжёлый день',
+      blocks: [{ type: 'weighted', sets: 4 }],
+      hint: c => `<strong>С рюкзаком ${c.kg} кг: 4 подхода по 8–15.</strong> Останавливайся за 1–2 повтора до отказа. Остаток до цели добери классическими. Отдых 60–90 сек.`,
+    },
+    volume: {
+      name: 'Объём',
+      blocks: [{ type: 'classic', sets: 4 }],
+      hint: c => `<strong>Классические: 4–5 подходов по ${Math.round(c.max * .6)}–${Math.round(c.max * .7)}.</strong> Это 60–70% от максимума (${c.max}). Отдых 60–90 сек.`,
+    },
+    variations: {
+      name: 'Вариации',
+      blocks: [{ type: 'decline', sets: 3 }, { type: 'diamond', sets: 3 }],
+      hint: () => `<strong>Ноги на возвышении 3 подхода, затем алмазные 3 подхода.</strong> Остаток до цели любым типом. Отдых 60–90 сек.`,
+    },
+    light: {
+      name: 'Лёгкий день',
+      restAllowed: true, // пустой день не рвёт цепочку
+      blocks: [{ type: 'classic', sets: 2 }],
+      goal: c => 2 * Math.round(c.max / 2),
+      hint: c => `<strong>2 подхода по ${Math.round(c.max / 2)}</strong> (половина максимума) либо полный отдых. Отдых цепочку не рвёт.`,
+    },
+  },
+
+  // 0 = воскресенье … 6 = суббота
+  week: ['light', 'heavy', 'volume', 'variations', 'heavy', 'volume', 'variations'],
+
+  progression: [
+    { weeks: [1, 2],  goal: 80,  kg: 5,  kgLabel: '5 кг' },
+    { weeks: [3, 4],  goal: 100, kg: 7,  kgLabel: '7–8 кг' },
+    { weeks: [5, 6],  goal: 120, kg: 10, kgLabel: '10 кг' },
+    { weeks: [7, 8],  goal: 140, kg: 12, kgLabel: '12 кг' },
+    { weeks: [9, 12], goal: 140, kg: 15, kgLabel: 'рост до 15 кг' },
+  ],
+};
+
+/* ============================ Утилиты ============================ */
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
+const localDate = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const toUTC = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+const fromUTC = t => { const d = new Date(t); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`; };
+const addDays = (s, n) => fromUTC(toUTC(s) + n * 864e5);
+const diffDays = (a, b) => Math.round((toUTC(b) - toUTC(a)) / 864e5);
+const dow = s => new Date(toUTC(s)).getUTCDay();
+const mondayOf = s => addDays(s, -((dow(s) + 6) % 7));
+const DOW = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+const MON = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+const fmtDate = s => { const [, m, d] = s.split('-').map(Number); return `${DOW[dow(s)]}, ${d} ${MON[m - 1]}`; };
+const fmtShort = s => { const [, m, d] = s.split('-').map(Number); return `${d}.${pad(m)}`; };
+const parseNum = v => { const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) ? n : null; };
+const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 10 || b >= 20) ? few : many; };
+const newId = () => { const c = 'abcdefghijklmnopqrstuvwxyz0123456789'; const r = crypto.getRandomValues(new Uint8Array(15)); return Array.from(r, x => c[x % 36]).join(''); };
+const store = {
+  get(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+let toastTimer;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* ============================ Состояние ============================ */
+const pb = new PocketBase(location.origin);
+pb.autoCancellation(false);
+
+const state = {
+  sets: [], tests: [], settings: null,
+  queue: store.get('pt_queue', []),   // подходы, записанные без сети
+  tab: 'today', manualType: null, today: localDate(), online: true, selDay: null,
+};
+const isNetErr = e => e && (e.status === 0 || e.isAbort);
+const uid = () => pb.authStore.record && pb.authStore.record.id;
+
+/* ============================ Расчёты по плану ============================ */
+function weekNo(date) {
+  const n = Math.floor(diffDays(state.settings.start_date, date) / 7) + 1;
+  return Math.max(1, n);
+}
+function stage(date) {
+  const w = weekNo(date);
+  return PLAN.progression.find(p => w >= p.weeks[0] && w <= p.weeks[1]) || PLAN.progression[PLAN.progression.length - 1];
+}
+function dayPlan(date) {
+  const st = stage(date), key = PLAN.week[dow(date)], dt = PLAN.dayTypes[key];
+  const c = { max: state.settings.current_max, kg: state.settings.backpack_kg || st.kg, goal: st.goal };
+  return { key, dt, st, c, goal: dt.goal ? dt.goal(c) : st.goal, hint: dt.hint(c) };
+}
+function totalsByDate() {
+  const m = new Map();
+  for (const s of state.sets) m.set(s.date, (m.get(s.date) || 0) + s.reps);
+  return m;
+}
+function streaks(totals) {
+  const today = state.today;
+  const done = d => (totals.get(d) || 0) >= PLAN.minReps;
+  const rest = d => !!PLAN.dayTypes[PLAN.week[dow(d)]].restAllowed;
+  const dates = [...totals.keys()].sort();
+  if (!dates.length) return { cur: 0, best: 0 };
+  let best = 0, run = 0;
+  for (let d = dates[0]; d <= today; d = addDays(d, 1)) {
+    if (done(d)) run++;
+    else if (!rest(d) && d !== today) run = 0;
+    best = Math.max(best, run);
+  }
+  return { cur: run, best };
+}
+function autoType(todaySets, plan) {
+  for (const b of plan.dt.blocks) {
+    if (todaySets.filter(s => s.type === b.type).length < b.sets) return b.type;
+  }
+  return 'classic';
+}
+function lastTestDate() {
+  const d = state.tests.map(t => t.date).sort().pop();
+  return d || state.settings.start_date;
+}
+
+/* ============================ Загрузка и синхронизация ============================ */
+function saveCache() { store.set('pt_cache', { uid: uid(), sets: state.sets.filter(s => !s._pending), tests: state.tests, settings: state.settings }); }
+function mergeQueue() {
+  const ids = new Set(state.sets.map(s => s.id));
+  for (const q of state.queue) if (!ids.has(q.id)) state.sets.push({ ...q, _pending: true });
+}
+async function loadAll() {
+  const cache = store.get('pt_cache', null);
+  if (cache && cache.uid === uid() && cache.settings) {
+    Object.assign(state, { sets: cache.sets, tests: cache.tests, settings: cache.settings });
+    mergeQueue(); render();
+  }
+  try {
+    await flushQueue();
+    const [sets, tests, settingsList] = await Promise.all([
+      pb.collection('sets').getFullList({ sort: 'date,created' }),
+      pb.collection('max_tests').getFullList({ sort: 'date,created' }),
+      pb.collection('settings').getFullList(),
+    ]);
+    let settings = settingsList[0];
+    if (!settings) {
+      settings = await pb.collection('settings').create({
+        user: uid(), ...PLAN.defaults, backpack_kg: PLAN.progression[0].kg,
+      });
+    }
+    Object.assign(state, { sets, tests, settings, online: true });
+    mergeQueue(); saveCache();
+  } catch (e) {
+    if (e.status === 401 || e.status === 403) return logout();
+    state.online = false;
+    if (!state.settings) state.settings = { ...PLAN.defaults, backpack_kg: PLAN.progression[0].kg, _local: true };
+    if (!isNetErr(e)) console.error(e);
+  }
+  render();
+}
+async function flushQueue() {
+  while (state.queue.length) {
+    const q = state.queue[0];
+    try {
+      await pb.collection('sets').create({ ...q, user: uid() });
+    } catch (e) {
+      if (isNetErr(e)) throw e;
+      // 400 = запись с таким id уже создана (повторная отправка) — считаем доставленной
+      if (e.status !== 400) throw e;
+    }
+    state.queue.shift(); store.set('pt_queue', state.queue);
+  }
+}
+
+/* ============================ Действия ============================ */
+async function addSet(reps, extra = {}) {
+  reps = Math.round(reps);
+  if (!(reps > 0) || reps > 1000) return toast('Введи число повторов');
+  const type = extra.type || currentType();
+  const rec = { id: newId(), date: localDate(), reps, type };
+  if (type === 'weighted') {
+    const kg = parseNum($('weight').value);
+    if (kg !== null && kg >= 0) rec.weight_kg = kg;
+  }
+  state.sets.push({ ...rec, _pending: true });
+  render();
+  if (navigator.vibrate) navigator.vibrate(10);
+  try {
+    const saved = await pb.collection('sets').create({ ...rec, user: uid() });
+    const i = state.sets.findIndex(s => s.id === rec.id);
+    if (i >= 0) state.sets[i] = saved;
+    state.online = true;
+    if (rec.weight_kg != null && rec.weight_kg !== state.settings.backpack_kg) updateSettings({ backpack_kg: rec.weight_kg }, true);
+    saveCache();
+  } catch (e) {
+    if (isNetErr(e)) {
+      state.queue.push(rec); store.set('pt_queue', state.queue);
+      state.online = false;
+      toast('Нет сети — подход сохранён и отправится позже');
+    } else {
+      state.sets = state.sets.filter(s => s.id !== rec.id);
+      toast('Не удалось записать подход');
+    }
+  }
+  render();
+}
+async function deleteSet(id) {
+  const s = state.sets.find(x => x.id === id);
+  if (!s) return;
+  if (s._pending) {
+    state.queue = state.queue.filter(q => q.id !== id); store.set('pt_queue', state.queue);
+  } else {
+    try { await pb.collection('sets').delete(id); }
+    catch (e) { if (e.status !== 404) return toast(isNetErr(e) ? 'Нет сети — удалить не получилось' : 'Не удалось удалить'); }
+  }
+  state.sets = state.sets.filter(x => x.id !== id);
+  saveCache(); render();
+}
+async function updateSet(id, patch) {
+  const s = state.sets.find(x => x.id === id);
+  if (!s) return;
+  if (s._pending) {
+    Object.assign(s, patch);
+    const q = state.queue.find(x => x.id === id); if (q) Object.assign(q, patch);
+    store.set('pt_queue', state.queue);
+  } else {
+    try { Object.assign(s, await pb.collection('sets').update(id, patch)); }
+    catch (e) { return toast(isNetErr(e) ? 'Нет сети — исправить не получилось' : 'Не удалось сохранить'); }
+  }
+  saveCache(); render();
+}
+async function updateSettings(patch, silent) {
+  try {
+    if (state.settings._local) throw { status: 0 };
+    state.settings = await pb.collection('settings').update(state.settings.id, patch);
+    saveCache(); render();
+    if (!silent) toast('Сохранено');
+    return true;
+  } catch (e) {
+    if (!silent) toast(isNetErr(e) ? 'Нет сети — настройки не сохранены' : 'Не удалось сохранить');
+    return false;
+  }
+}
+async function recordTest(reps) {
+  try {
+    const t = await pb.collection('max_tests').create({ user: uid(), date: localDate(), reps });
+    state.tests.push(t);
+    await updateSettings({ current_max: reps }, true);
+    await addSet(reps, { type: 'classic' });
+    toast(`Новый максимум: ${reps}`);
+  } catch (e) {
+    toast(isNetErr(e) ? 'Нет сети — тест не записан' : 'Не удалось записать тест');
+  }
+}
+function logout() {
+  pb.authStore.clear(); store.del('pt_cache');
+  Object.assign(state, { sets: [], tests: [], settings: null });
+  showLogin();
+}
+
+/* ============================ Рендер: сегодня ============================ */
+function currentType() {
+  const plan = dayPlan(state.today);
+  return state.manualType || autoType(state.sets.filter(s => s.date === state.today), plan);
+}
+function renderToday() {
+  const today = state.today, plan = dayPlan(today);
+  const todaySets = state.sets.filter(s => s.date === today);
+  const done = todaySets.reduce((a, s) => a + s.reps, 0);
+  const totals = totalsByDate();
+
+  $('day-type').textContent = plan.dt.name;
+  $('day-week').textContent = diffDays(state.settings.start_date, today) < 0
+    ? `старт ${fmtShort(state.settings.start_date)}` : `неделя ${weekNo(today)}`;
+  $('done').textContent = done;
+  $('goal').textContent = `/ ${plan.goal}`;
+  $('done-mark').hidden = done < plan.goal;
+  const bar = $('bar');
+  bar.style.width = Math.min(100, done / plan.goal * 100) + '%';
+  bar.classList.toggle('full', done >= plan.goal);
+  $('hint').innerHTML = plan.hint;
+
+  const st = streaks(totals);
+  $('streak').textContent = st.cur;
+  $('streak-label').innerHTML = `${plural(st.cur, 'день', 'дня', 'дней')}<br>подряд`;
+  $('streak-best').textContent = st.best;
+
+  // Баннеры
+  const b = [];
+  if (!state.online || state.queue.length) {
+    b.push(`<div class="banner offline"><span>${state.queue.length
+      ? `Нет сети. В очереди: ${state.queue.length} ${plural(state.queue.length, 'подход', 'подхода', 'подходов')}`
+      : 'Нет связи с сервером, показаны сохранённые данные'}</span><button data-act="retry">Повторить</button></div>`);
+  }
+  const sinceTest = diffDays(lastTestDate(), today);
+  if (sinceTest >= PLAN.testEveryDays) {
+    b.push(`<div class="banner"><span>Пора сделать тест на максимум — прошло ${Math.floor(sinceTest / 7)} нед.</span><button data-act="test">Записать</button></div>`);
+  }
+  const yesterday = addDays(today, -1);
+  const started = [...totals.keys()].some(d => d < yesterday);
+  if (started && done < PLAN.minReps && (totals.get(yesterday) || 0) < PLAN.minReps) {
+    b.push(`<div class="banner"><span>Вчера был пропуск. Два дня подряд не пропускаем — хотя бы 1 подход из ${PLAN.minReps}.</span></div>`);
+  }
+  const w = todaySets.filter(s => s.type === 'weighted');
+  if (plan.key === 'heavy' && w.length >= PLAN.heavy.minSets && w.every(s => s.reps >= PLAN.heavy.easyReps)
+      && w.every(s => (s.weight_kg || 0) >= (state.settings.backpack_kg || 0))) {
+    const next = (state.settings.backpack_kg || plan.st.kg) + PLAN.heavy.stepKg;
+    b.push(`<div class="banner"><span>Все подходы по ${PLAN.heavy.easyReps}+ — пора утяжелять рюкзак до ${next} кг.</span><button data-act="kg" data-kg="${next}">+${PLAN.heavy.stepKg} кг</button></div>`);
+  }
+  $('banners').innerHTML = b.join('');
+
+  // Типы и вес
+  const cur = currentType();
+  $('chips').innerHTML = Object.entries(PLAN.types).map(([k, t]) =>
+    `<button class="chip${k === cur ? ' on' : ''}" data-type="${k}">${t.name}</button>`).join('');
+  const on = $('chips').querySelector('.on');
+  if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  $('weight-row').hidden = cur !== 'weighted';
+  if (document.activeElement !== $('weight')) $('weight').value = state.settings.backpack_kg || plan.st.kg;
+  $('weight-plan').textContent = `по плану: ${plan.st.kgLabel}`;
+
+  $('sets').innerHTML = todaySets.length ? todaySets.map((s, i) => `
+    <li>
+      <span class="n num">${i + 1}</span>
+      <div class="main"><b class="num">${s.reps}</b><span>${PLAN.types[s.type].name}${s.weight_kg ? ` · ${s.weight_kg} кг` : ''}</span>${s._pending ? '<div class="pend">ждёт отправки</div>' : ''}</div>
+      <button class="icon-btn" data-edit="${s.id}" aria-label="Исправить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4zM13 7l4 4"/></svg></button>
+      <button class="icon-btn" data-del="${s.id}" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg></button>
+    </li>`).join('') : `<li><p class="empty">Пока пусто. В плохой день хватит одного подхода из ${PLAN.minReps}.</p></li>`;
+}
+
+/* ============================ Рендер: история ============================ */
+function lineChart(points, unit) {
+  if (!points.length) return '';
+  const W = 320, H = 130, L = 8, R = 8, T = 22, B = 20;
+  const vals = points.map(p => p.v);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const x = i => points.length === 1 ? W / 2 : L + 12 + i * (W - L - R - 24) / (points.length - 1);
+  const y = v => T + (hi - v) * (H - T - B) / (hi - lo);
+  const step = Math.ceil(points.length / 6);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">
+    <line class="grid" x1="${L}" x2="${W - R}" y1="${H - B + 6}" y2="${H - B + 6}"/>
+    <polyline class="ln" points="${points.map((p, i) => `${x(i)},${y(p.v)}`).join(' ')}"/>
+    ${points.map((p, i) => `<circle class="dot" cx="${x(i)}" cy="${y(p.v)}" r="4"/>
+      ${(i % step === 0 && points.length - 1 - i >= step) || i === points.length - 1 ? `<text class="v" x="${x(i)}" y="${y(p.v) - 9}" text-anchor="middle">${p.v}${i === points.length - 1 ? unit : ''}</text>
+      <text x="${x(i)}" y="${H - 2}" text-anchor="middle">${fmtShort(p.d)}</text>` : ''}`).join('')}
+  </svg>`;
+}
+function renderHistory() {
+  const today = state.today, totals = totalsByDate();
+  const thisMon = mondayOf(today);
+  let weekSum = 0, all = 0;
+  for (const [d, n] of totals) { all += n; if (d >= thisMon) weekSum += n; }
+  $('sum-week').textContent = weekSum;
+  $('sum-all').textContent = all.toLocaleString('ru-RU');
+  const activeDays = [...totals.values()].filter(n => n > 0).length;
+  $('sum-all-label').textContent = `за всё время · ${activeDays} ${plural(activeDays, 'день', 'дня', 'дней')}`;
+
+  const first = [...totals.keys()].sort()[0];
+  let from = mondayOf(first && first < state.settings.start_date ? first : state.settings.start_date);
+  if (from > thisMon) from = thisMon;
+  if (diffDays(from, thisMon) > 7 * 25) from = addDays(thisMon, -7 * 25); // последние полгода
+  let h = '<span></span>' + [1, 2, 3, 4, 5, 6, 0].map(i => `<span class="dow">${DOW[i]}</span>`).join('') + '<span></span>';
+  for (let mon = thisMon; mon >= from; mon = addDays(mon, -7)) {
+    const inProgram = diffDays(state.settings.start_date, addDays(mon, 6)) >= 0;
+    h += `<span>${inProgram ? 'н' + weekNo(addDays(mon, 6)) : ''}</span>`;
+    let sum = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(mon, i), n = totals.get(d) || 0;
+      sum += n;
+      const ratio = n / dayPlan(d).goal;
+      const lvl = !n ? '' : ratio >= 1 ? 'l4' : ratio >= .66 ? 'l3' : ratio >= .33 ? 'l2' : 'l1';
+      const off = d > today || d < state.settings.start_date && !n;
+      h += `<button class="cell ${lvl}${off ? ' off' : ''}${d === today ? ' today' : ''}${d === state.selDay ? ' sel' : ''}" data-day="${d}" aria-label="${fmtDate(d)}: ${n}"></button>`;
+    }
+    h += `<span class="sum num">${sum || ''}</span>`;
+  }
+  $('heat').innerHTML = h;
+  const sd = state.selDay;
+  if (sd) {
+    const ds = state.sets.filter(s => s.date === sd), n = totals.get(sd) || 0;
+    $('heat-info').textContent = n
+      ? `${fmtDate(sd)}: ${n} ${plural(n, 'повтор', 'повтора', 'повторов')} за ${ds.length} ${plural(ds.length, 'подход', 'подхода', 'подходов')} (${ds.map(s => s.reps).join(' + ')})`
+      : `${fmtDate(sd)}: ${sd > today ? 'ещё впереди' : 'без отжиманий'}`;
+  } else $('heat-info').textContent = 'Нажми на день, чтобы увидеть подходы. Справа — сумма за неделю.';
+
+  const tests = [...state.tests].sort((a, b) => a.date.localeCompare(b.date)).map(t => ({ d: t.date, v: t.reps }));
+  $('chart-max').innerHTML = tests.length ? lineChart(tests, '')
+    : `<p class="empty">Тестов пока нет. Сейчас максимум принят за ${state.settings.current_max}.</p>`;
+
+  const byDay = new Map();
+  for (const s of state.sets) if (s.type === 'weighted' && s.weight_kg) byDay.set(s.date, Math.max(byDay.get(s.date) || 0, s.weight_kg));
+  const kg = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([d, v]) => ({ d, v }));
+  $('chart-weight').innerHTML = kg.length ? lineChart(kg, ' кг') : '<p class="empty">Появится после первого подхода с рюкзаком.</p>';
+}
+
+/* ============================ Рендер: настройки ============================ */
+function renderSettings() {
+  const s = state.settings, a = document.activeElement;
+  if (a !== $('s-start')) $('s-start').value = s.start_date;
+  if (a !== $('s-max')) $('s-max').value = s.current_max;
+  if (a !== $('s-weight')) $('s-weight').value = s.backpack_kg || '';
+  const w = weekNo(state.today);
+  $('plan-table').innerHTML = '<tr><th>Недели</th><th>Цель в день</th><th>Рюкзак</th></tr>' + PLAN.progression.map(p =>
+    `<tr class="${w >= p.weeks[0] && w <= p.weeks[1] ? 'cur' : ''}"><td>${p.weeks[0]}–${p.weeks[1]}</td><td class="num">${p.goal}</td><td>${p.kgLabel}</td></tr>`).join('');
+  $('plan-goal').textContent = PLAN.finalGoal;
+  const left = PLAN.testEveryDays - diffDays(lastTestDate(), state.today);
+  const last = state.tests.length ? `Последний тест: ${fmtDate(lastTestDate())}. ` : 'Тестов ещё не было. ';
+  $('test-note').textContent = last + (left > 0 ? `Следующий через ${left} ${plural(left, 'день', 'дня', 'дней')}.` : 'Пора делать следующий.');
+  $('account').textContent = pb.authStore.record ? `Вход выполнен: ${pb.authStore.record.email}` : '';
+}
+
+function render() {
+  if (!state.settings) return;
+  state.today = localDate();
+  const titles = { today: 'Сегодня', history: 'История', settings: 'Настройки' };
+  $('title').textContent = titles[state.tab];
+  $('subtitle').textContent = fmtDate(state.today);
+  for (const t of Object.keys(titles)) $('view-' + t).hidden = t !== state.tab;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === state.tab));
+  ({ today: renderToday, history: renderHistory, settings: renderSettings })[state.tab]();
+}
+
+/* ============================ Экспорт / импорт ============================ */
+async function exportData() {
+  const clean = ({ id, date, reps, type, weight_kg, created }) => ({ id, date, reps, type, weight_kg, created });
+  const data = {
+    app: 'pushup-tracker', version: 1, exported_at: new Date().toISOString(),
+    settings: { start_date: state.settings.start_date, current_max: state.settings.current_max, backpack_kg: state.settings.backpack_kg },
+    sets: state.sets.map(clean),
+    max_tests: state.tests.map(({ id, date, reps, created }) => ({ id, date, reps, created })),
+  };
+  const name = `pushups-${localDate()}.json`;
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const file = new File([blob], name, { type: 'application/json' });
+  if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia('(pointer: coarse)').matches) {
+    try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+async function importData(file) {
+  let data;
+  try { data = JSON.parse(await file.text()); } catch { return toast('Это не JSON-файл'); }
+  if (!data || !Array.isArray(data.sets)) return toast('Файл не похож на экспорт трекера');
+  const n = data.sets.length + (data.max_tests || []).length;
+  if (!confirm(`Импортировать ${n} записей? Уже существующие будут пропущены.`)) return;
+  let added = 0, skipped = 0;
+  const put = async (coll, rec) => {
+    try { await pb.collection(coll).create({ ...rec, user: uid() }); added++; }
+    catch (e) { if (isNetErr(e)) throw e; skipped++; }
+  };
+  try {
+    const have = new Set([...state.sets, ...state.tests].map(r => r.id));
+    for (const s of data.sets) {
+      if (have.has(s.id)) { skipped++; continue; }
+      const rec = { date: s.date, reps: s.reps, type: s.type };
+      if (s.id) rec.id = s.id;
+      if (s.weight_kg) rec.weight_kg = s.weight_kg;
+      await put('sets', rec);
+    }
+    for (const t of data.max_tests || []) {
+      if (have.has(t.id)) { skipped++; continue; }
+      const rec = { date: t.date, reps: t.reps };
+      if (t.id) rec.id = t.id;
+      await put('max_tests', rec);
+    }
+    if (data.settings) {
+      const { start_date, current_max, backpack_kg } = data.settings;
+      await updateSettings({ start_date, current_max, backpack_kg }, true);
+    }
+  } catch { toast('Сеть пропала, импорт прерван — можно повторить'); }
+  await loadAll();
+  toast(`Импорт: добавлено ${added}, пропущено ${skipped}`);
+}
+
+/* ============================ События ============================ */
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  state.tab = b.dataset.tab; render(); scrollTo(0, 0);
+});
+$('quick').innerHTML = PLAN.quick.map(n => `<button type="button" data-reps="${n}">+${n}</button>`).join('');
+$('quick').addEventListener('click', e => { const b = e.target.closest('[data-reps]'); if (b) addSet(+b.dataset.reps); });
+$('custom-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const n = parseNum($('custom-reps').value);
+  if (n) { addSet(n); $('custom-reps').value = ''; $('custom-reps').blur(); }
+});
+$('chips').addEventListener('click', e => {
+  const b = e.target.closest('[data-type]'); if (!b) return;
+  state.manualType = b.dataset.type; render();
+});
+$('weight-row').addEventListener('click', e => {
+  const b = e.target.closest('[data-w]'); if (!b) return;
+  const v = Math.max(0, (parseNum($('weight').value) || 0) + +b.dataset.w);
+  $('weight').value = v;
+  updateSettings({ backpack_kg: v }, true);
+});
+$('weight').addEventListener('change', () => {
+  const v = parseNum($('weight').value);
+  if (v !== null && v >= 0) updateSettings({ backpack_kg: v }, true);
+});
+$('banners').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  if (b.dataset.act === 'test') openTest();
+  if (b.dataset.act === 'retry') loadAll();
+  if (b.dataset.act === 'kg') updateSettings({ backpack_kg: +b.dataset.kg });
+});
+
+let editId = null;
+$('e-type').innerHTML = Object.entries(PLAN.types).map(([k, t]) => `<option value="${k}">${t.name}</option>`).join('');
+$('sets').addEventListener('click', e => {
+  const del = e.target.closest('[data-del]'), ed = e.target.closest('[data-edit]');
+  if (del) deleteSet(del.dataset.del);
+  if (ed) {
+    const s = state.sets.find(x => x.id === ed.dataset.edit); if (!s) return;
+    editId = s.id;
+    $('e-reps').value = s.reps; $('e-type').value = s.type; $('e-weight').value = s.weight_kg || '';
+    $('dlg-edit').showModal();
+  }
+});
+$('edit-form').addEventListener('submit', () => {
+  const reps = Math.round(parseNum($('e-reps').value) || 0);
+  if (reps <= 0) return toast('Введи число повторов');
+  const type = $('e-type').value, kg = parseNum($('e-weight').value);
+  updateSet(editId, { reps, type, weight_kg: type === 'weighted' && kg > 0 ? kg : null });
+});
+function openTest() { $('t-reps').value = ''; $('dlg-test').showModal(); }
+$('btn-test').addEventListener('click', openTest);
+$('test-form').addEventListener('submit', () => {
+  const reps = Math.round(parseNum($('t-reps').value) || 0);
+  if (reps > 0) recordTest(reps); else toast('Введи результат теста');
+});
+document.querySelectorAll('dialog [data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
+document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
+
+$('heat').addEventListener('click', e => {
+  const c = e.target.closest('[data-day]'); if (!c) return;
+  state.selDay = state.selDay === c.dataset.day ? null : c.dataset.day; render();
+});
+$('settings-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const start_date = $('s-start').value, current_max = Math.round(parseNum($('s-max').value) || 0), kg = parseNum($('s-weight').value);
+  if (!start_date || current_max <= 0) return toast('Проверь дату и максимум');
+  document.activeElement.blur();
+  updateSettings({ start_date, current_max, backpack_kg: kg > 0 ? kg : null });
+});
+$('btn-export').addEventListener('click', exportData);
+$('btn-import').addEventListener('click', () => $('import-file').click());
+$('import-file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importData(f); });
+$('btn-logout').addEventListener('click', () => {
+  if (state.queue.length && !confirm('В очереди есть неотправленные подходы. Всё равно выйти?')) return;
+  if (confirm('Выйти из аккаунта?')) logout();
+});
+
+$('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button'); btn.disabled = true; $('login-err').textContent = '';
+  try {
+    await pb.collection('users').authWithPassword($('login-email').value.trim(), $('login-pass').value);
+    $('login-pass').value = '';
+    start();
+  } catch (err) {
+    $('login-err').textContent = isNetErr(err) ? 'Нет связи с сервером' : 'Неверный логин или пароль';
+  }
+  btn.disabled = false;
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !pb.authStore.isValid) return;
+  if (localDate() !== state.today) state.manualType = null;
+  loadAll();
+});
+addEventListener('online', () => pb.authStore.isValid && loadAll());
+
+/* ============================ Запуск ============================ */
+function showLogin() { $('login').hidden = false; $('app').hidden = true; $('tabs').hidden = true; }
+function start() {
+  $('login').hidden = true; $('app').hidden = false; $('tabs').hidden = false;
+  // Продлеваем долгую сессию при каждом открытии
+  pb.collection('users').authRefresh().catch(e => { if (e.status === 401 || e.status === 403) logout(); });
+  loadAll();
+}
+pb.authStore.isValid ? start() : showLogin();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
