@@ -99,6 +99,7 @@ header.top .sub { color: var(--muted); font-size: 14px; white-space: nowrap; }
 
 .streaks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 .streaks .shield { grid-column: 1 / -1; }
+.streaks .shield b { white-space: nowrap; flex: none; }
 .streaks .shield b::before { content: "🛡 "; font-size: 18px; }
 .streaks .card { margin: 0; padding: 12px 16px; display: flex; align-items: baseline; gap: 8px; }
 .streaks b { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
@@ -398,6 +399,7 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
    ПЛАН ТРЕНИРОВОК — правится здесь, логика ниже от него не зависит.
    c = { max: текущий максимум, kg: вес рюкзака, goal: цель недели }
    =================================================================== */
+const APP_VERSION = 7; // повышать вместе с CACHE в sw.js, показывается в настройках
 const PLAN = {
   defaults: { start_date: '2026-09-21', current_max: 30 },
   quick: [10, 15, 20],
@@ -1018,7 +1020,7 @@ function renderSettings() {
   const last = state.tests.length ? `Последний тест: ${fmtDate(lastTestDate())}. ` : 'Тестов ещё не было. ';
   $('test-note').textContent = last + (left > 0 ? `Следующий через ${left} ${plural(left, 'день', 'дня', 'дней')}.` : 'Пора делать следующий.');
   renderPush();
-  $('account').textContent = pb.authStore.record ? `Вход выполнен: ${pb.authStore.record.email}` : '';
+  $('account').textContent = (pb.authStore.record ? `Вход выполнен: ${pb.authStore.record.email}. ` : '') + `Версия ${APP_VERSION}`;
 }
 
 function render() {
