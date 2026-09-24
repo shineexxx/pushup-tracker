@@ -399,7 +399,7 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
    ПЛАН ТРЕНИРОВОК — правится здесь, логика ниже от него не зависит.
    c = { max: текущий максимум, kg: вес рюкзака, goal: цель недели }
    =================================================================== */
-const APP_VERSION = 7; // повышать вместе с CACHE в sw.js, показывается в настройках
+const APP_VERSION = 8; // повышать вместе с CACHE в sw.js, показывается в настройках
 const PLAN = {
   defaults: { start_date: '2026-09-21', current_max: 30 },
   quick: [10, 15, 20],
@@ -662,26 +662,6 @@ async function addSet(reps, extra = {}) {
   }
   render();
 }
-/* Звук синтезируется на месте, файлов нет. iOS не умеет вибрацию в веб-приложениях, поэтому звук — единственный тактильный отклик. */
-let audioCtx;
-function playTone(goal) {
-  try {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (navigator.audioSession) navigator.audioSession.type = 'playback'; // играть и при выключенном звонке
-    }
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const notes = goal ? [523, 659, 784, 1047] : [660, 880];
-    const t0 = audioCtx.currentTime;
-    notes.forEach((f, i) => {
-      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-      o.type = 'sine'; o.frequency.value = f;
-      const t = t0 + i * (goal ? .11 : .07);
-      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.35, t + .01); g.gain.exponentialRampToValueAtTime(.001, t + (goal ? .25 : .12));
-      o.connect(g).connect(audioCtx.destination); o.start(t); o.stop(t + .3);
-    });
-  } catch {}
-}
 let rewardTimer;
 function showReward(rec) {
   const today = localDate(), plan = dayPlan(today);
@@ -695,7 +675,6 @@ function showReward(rec) {
   else { head = `+${rec.reps} записано`; sub = `Осталось ${left} до цели${n > 1 ? ` · подход ${n}` : ''}`; }
   $('reward').innerHTML = `<b>${head}</b><span>${sub}</span><span class="photo">${PLAN.photoReminder}</span>`;
   $('reward').hidden = false;
-  playTone(left <= 0);
   if (navigator.vibrate) navigator.vibrate(left <= 0 ? [30, 60, 30, 60, 60] : [15, 40, 15]);
   scrollTo({ top: 0, behavior: 'smooth' });
   clearTimeout(rewardTimer); rewardTimer = setTimeout(() => { $('reward').hidden = true; }, 15000);
