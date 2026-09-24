@@ -1,5 +1,5 @@
 // Оболочка приложения доступна без сети: сначала сеть, при ошибке — кэш. API не кэшируется.
-const CACHE = 'pushups-v13';
+const CACHE = 'pushups-v14';
 const SHELL = ['./', 'pocketbase.umd.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
