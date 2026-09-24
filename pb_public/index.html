@@ -84,6 +84,8 @@ header.top .sub { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .hero .hint strong { color: var(--text); font-weight: 600; }
 
 .streaks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.streaks .shield { grid-column: 1 / -1; }
+.streaks .shield b::before { content: "🛡 "; font-size: 18px; }
 .streaks .card { margin: 0; padding: 12px 16px; display: flex; align-items: baseline; gap: 8px; }
 .streaks b { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
 .streaks span { color: var(--muted); font-size: 13px; line-height: 1.2; }
@@ -193,6 +195,11 @@ dialog .stack { margin-bottom: 14px; }
 dialog .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
 
+.reward { border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; background: var(--text); color: var(--bg); animation: pop .4s cubic-bezier(.2, 1.4, .4, 1); }
+.reward b { display: block; font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.reward span { display: block; font-size: 15px; margin-top: 2px; opacity: .85; }
+.reward .photo { margin-top: 8px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--bg) 25%, transparent); font-weight: 600; opacity: 1; }
+@keyframes pop { from { transform: scale(.92); opacity: 0; } to { transform: none; opacity: 1; } }
 #toast {
   position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 92px); transform: translate(-50%, 20px);
   background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px; font-weight: 500;
@@ -222,6 +229,7 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
 
   <main id="view-today">
     <div id="banners"></div>
+    <div class="reward" id="reward" hidden></div>
     <section class="card hero">
       <div class="daytype"><span id="day-type"></span><span id="day-week"></span></div>
       <div class="count num"><b id="done">0</b><span id="goal"></span><span class="done-mark" id="done-mark" hidden>Цель взята</span></div>
@@ -232,6 +240,7 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
     <div class="streaks">
       <div class="card"><b class="num" id="streak">0</b><span id="streak-label">дней<br>подряд</span></div>
       <div class="card"><b class="num" id="streak-best">0</b><span>рекорд<br>цепочки</span></div>
+      <div class="card shield"><b class="num" id="freezes">0</b><span id="freezes-label"></span></div>
     </div>
 
     <section class="card">
@@ -373,6 +382,8 @@ const PLAN = {
   defaults: { start_date: '2026-09-21', current_max: 30 },
   quick: [10, 15, 20],
   minReps: 10,          // «плохой день»: столько повторов хватает, чтобы день попал в цепочку
+  freeze: { everyDays: 14, max: 2 }, // страховка стрика: одна за каждые 14 сделанных дней, в запасе не больше двух
+  photoReminder: 'Сделай фото в зеркале 📸', // напоминание после каждого подхода
   testEveryDays: 28,    // тест на максимум раз в 4 недели
   heavy: { easyReps: 15, minSets: 4, stepKg: 2 }, // правило «+2 кг»
   // Времена напоминаний по умолчанию (будни / выходные), дальше меняются в настройках
@@ -489,14 +500,20 @@ function streaks(totals) {
   const done = d => (totals.get(d) || 0) >= PLAN.minReps;
   const rest = d => !!PLAN.dayTypes[PLAN.week[dow(d)]].restAllowed;
   const dates = [...totals.keys()].sort();
-  if (!dates.length) return { cur: 0, best: 0 };
-  let best = 0, run = 0;
+  if (!dates.length) return { cur: 0, best: 0, freezes: 0, usedYesterday: false, toNext: PLAN.freeze.everyDays };
+  // Страховки считаются по истории заново, отдельного состояния нет
+  let best = 0, run = 0, freezes = 0, earned = 0, usedYesterday = false;
   for (let d = dates[0]; d <= today; d = addDays(d, 1)) {
-    if (done(d)) run++;
-    else if (!rest(d) && d !== today) run = 0;
+    if (done(d)) {
+      run++; earned++;
+      if (earned % PLAN.freeze.everyDays === 0 && freezes < PLAN.freeze.max) freezes++;
+    } else if (!rest(d) && d !== today) {
+      if (freezes > 0 && run > 0) { freezes--; usedYesterday = d === addDays(today, -1); }
+      else run = 0;
+    }
     best = Math.max(best, run);
   }
-  return { cur: run, best };
+  return { cur: run, best, freezes, usedYesterday, toNext: PLAN.freeze.everyDays - earned % PLAN.freeze.everyDays };
 }
 function autoType(todaySets, plan) {
   for (const b of plan.dt.blocks) {
@@ -570,8 +587,8 @@ async function addSet(reps, extra = {}) {
     if (kg !== null && kg >= 0) rec.weight_kg = kg;
   }
   state.sets.push({ ...rec, _pending: true });
+  showReward(rec);
   render();
-  if (navigator.vibrate) navigator.vibrate(10);
   try {
     const saved = await pb.collection('sets').create({ ...rec, user: uid() });
     const i = state.sets.findIndex(s => s.id === rec.id);
@@ -590,6 +607,23 @@ async function addSet(reps, extra = {}) {
     }
   }
   render();
+}
+let rewardTimer;
+function showReward(rec) {
+  const today = localDate(), plan = dayPlan(today);
+  const todaySets = state.sets.filter(s => s.date === today);
+  const done = todaySets.reduce((a, s) => a + s.reps, 0), left = plan.goal - done;
+  const n = todaySets.length;
+  let head, sub;
+  if (left <= 0 && done - rec.reps < plan.goal) { head = `Цель дня взята: ${done}`; sub = n === 1 ? 'Одним подходом. Серьёзно.' : `${n} ${plural(n, 'подход', 'подхода', 'подходов')}, всё сверху — в копилку`; }
+  else if (left <= 0) { head = `+${rec.reps}, уже ${done}`; sub = `Сверх цели на ${-left}`; }
+  else if (done >= PLAN.minReps && done - rec.reps < PLAN.minReps) { head = `+${rec.reps} — день в цепочке`; sub = `До цели осталось ${left}`; }
+  else { head = `+${rec.reps} записано`; sub = `Осталось ${left} до цели${n > 1 ? ` · подход ${n}` : ''}`; }
+  $('reward').innerHTML = `<b>${head}</b><span>${sub}</span><span class="photo">${PLAN.photoReminder}</span>`;
+  $('reward').hidden = false;
+  if (navigator.vibrate) navigator.vibrate(left <= 0 ? [30, 60, 30, 60, 60] : [15, 40, 15]);
+  scrollTo({ top: 0, behavior: 'smooth' });
+  clearTimeout(rewardTimer); rewardTimer = setTimeout(() => { $('reward').hidden = true; }, 15000);
 }
 async function deleteSet(id) {
   const s = state.sets.find(x => x.id === id);
@@ -767,6 +801,10 @@ function renderToday() {
   $('streak').textContent = st.cur;
   $('streak-label').innerHTML = `${plural(st.cur, 'день', 'дня', 'дней')}<br>подряд`;
   $('streak-best').textContent = st.best;
+  $('freezes').textContent = st.freezes;
+  $('freezes-label').innerHTML = st.freezes >= PLAN.freeze.max
+    ? `${plural(st.freezes, 'страховка', 'страховки', 'страховок')} стрика, запас полон`
+    : `${plural(st.freezes, 'страховка', 'страховки', 'страховок')} стрика · следующая через ${st.toNext} ${plural(st.toNext, 'день', 'дня', 'дней')}`;
 
   // Баннеры
   const b = [];
@@ -780,6 +818,7 @@ function renderToday() {
     b.push(`<div class="banner"><span>Пора сделать тест на максимум — прошло ${Math.floor(sinceTest / 7)} нед.</span><button data-act="test">Записать</button></div>`);
   }
   const yesterday = addDays(today, -1);
+  if (st.usedYesterday) b.push(`<div class="banner"><span>Вчера сработала страховка — цепочка ${st.cur} ${plural(st.cur, 'день', 'дня', 'дней')} жива. Осталось: ${st.freezes}.</span></div>`);
   const started = [...totals.keys()].some(d => d < yesterday);
   if (started && done < PLAN.minReps && (totals.get(yesterday) || 0) < PLAN.minReps) {
     b.push(`<div class="banner"><span>Вчера был пропуск. Два дня подряд не пропускаем — хотя бы 1 подход из ${PLAN.minReps}.</span></div>`);
