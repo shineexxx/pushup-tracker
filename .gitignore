@@ -4,3 +4,4 @@
 .DS_Store
 /notifier/node_modules/
 /notifier/vapid.json
+/.claude/vps2
