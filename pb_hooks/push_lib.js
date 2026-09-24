@@ -27,7 +27,7 @@ function sendToUser(userId, payload) {
           payload,
         }),
       });
-      if (res.statusCode === 200) sent++;
+      if (res.statusCode === 200) { sent++; $app.logger().info("push sent", "user", userId, "tag", payload.tag, "endpoint", String(s.get("endpoint")).slice(0, 40)); }
       else if (res.statusCode === 410) $app.delete(s); // подписка отозвана
       else $app.logger().warn("push failed", "status", res.statusCode, "body", toString(res.body));
     } catch (err) {
@@ -37,30 +37,48 @@ function sendToUser(userId, payload) {
   return { sent, total: subs.length };
 }
 
+// Напоминание считается «в окне» 10 минут после назначенного времени: если минута пропущена
+// (перезапуск, задержка), оно всё равно уйдёт. Что уже ушло сегодня — в settings.remind_log.
+const WINDOW_MIN = 10;
+const toMin = (hhmm) => { const m = /^(\d\d):(\d\d)$/.exec(hhmm || ""); return m ? +m[1] * 60 + +m[2] : -1; };
+
 function runReminders() {
   const all = $app.findRecordsByFilter("settings", "remind_enabled = true", "", 0, 0);
   const now = Date.now();
   for (const st of all) {
     const local = new Date(now + (st.getInt("tz_offset_min") || 0) * 60000);
-    const hhmm = `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}`;
-    const weekend = local.getUTCDay() === 0 || local.getUTCDay() === 6;
-    // пустое время ни с чем не совпадёт — так напоминание выключается
-    const isMain = hhmm === st.getString(weekend ? "remind_time_we" : "remind_time");
-    const isLate = hhmm === st.getString(weekend ? "remind_late_we" : "remind_late");
-    if (!isMain && !isLate) continue;
-
+    const nowMin = local.getUTCHours() * 60 + local.getUTCMinutes();
     const date = `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`;
+    const weekend = local.getUTCDay() === 0 || local.getUTCDay() === 6;
+    const inWindow = (hhmm) => { const t = toMin(hhmm); return t >= 0 && nowMin >= t && nowMin < t + WINDOW_MIN; };
+
+    let log = st.getString("remind_log");
+    if (!log.startsWith(date + ":")) log = date + ":";
+    const already = (kind) => log.slice(date.length + 1).split(",").includes(kind);
+
+    const kinds = [];
+    if (inWindow(st.getString(weekend ? "remind_time_we" : "remind_time")) && !already("main")) kinds.push("main");
+    if (inWindow(st.getString(weekend ? "remind_late_we" : "remind_late")) && !already("late")) kinds.push("late");
+    if (!kinds.length) continue;
+
     const sets = $app.findRecordsByFilter("sets", "user = {:u} && date = {:d}", "", 0, 0, { u: st.get("user"), d: date });
     let total = 0;
     for (const s of sets) total += s.getInt("reps");
 
-    let payload = null;
-    if (isLate && total < MIN_REPS && local.getUTCDay() !== REST_WEEKDAY) {
-      payload = { title: "Цепочка под угрозой", body: `Сегодня ${total ? "только " + total : "ещё нет отжиманий"}. Хватит одного подхода из ${MIN_REPS}.` };
-    } else if (isMain && total === 0) {
-      payload = { title: "Пора отжиматься", body: "Сегодня ещё нет подходов. Открой трекер и запиши первый." };
+    for (const kind of kinds) {
+      let payload = null;
+      if (kind === "late" && total < MIN_REPS && local.getUTCDay() !== REST_WEEKDAY) {
+        payload = { title: "Цепочка под угрозой", body: `Сегодня ${total ? "только " + total : "ещё нет отжиманий"}. Хватит одного подхода из ${MIN_REPS}.` };
+      } else if (kind === "main" && total === 0) {
+        payload = { title: "Пора отжиматься", body: "Сегодня ещё нет подходов. Открой трекер и запиши первый." };
+      }
+      $app.logger().info("reminder due", "user", st.get("user"), "kind", kind, "date", date, "total", total, "send", !!payload);
+      if (payload) sendToUser(st.get("user"), { ...payload, tag: "reminder", url: "/" });
+      // Помечаем и без отправки: условие уже проверено, повторять в окне не надо
+      log += (log.endsWith(":") ? "" : ",") + kind;
     }
-    if (payload) sendToUser(st.get("user"), { ...payload, tag: "reminder", url: "/" });
+    st.set("remind_log", log);
+    $app.save(st);
   }
 }
 

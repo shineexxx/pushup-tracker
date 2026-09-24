@@ -19,11 +19,13 @@ http.createServer((req, res) => {
   req.on('end', async () => {
     try {
       const { subscription, payload } = JSON.parse(raw);
-      await webpush.sendNotification(subscription, JSON.stringify(payload), { TTL: 3600, urgency: 'high' });
+      const r = await webpush.sendNotification(subscription, JSON.stringify(payload), { TTL: 3600, urgency: 'high' });
+      console.log(`sent ${r.statusCode} ${payload.tag || ''} -> ${subscription.endpoint.slice(0, 40)}`);
       reply(200, { ok: true });
     } catch (err) {
       // 404/410 от push-сервиса = подписка больше не существует
       const gone = err.statusCode === 404 || err.statusCode === 410;
+      console.log(`failed ${err.statusCode || ''} ${String(err.body || err.message).slice(0, 200)}`);
       reply(gone ? 410 : 502, { error: String(err.body || err.message) });
     }
   });
