@@ -495,7 +495,7 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
    ПЛАН ТРЕНИРОВОК — правится здесь, логика ниже от него не зависит.
    c = { max: текущий максимум, kg: вес рюкзака, goal: цель недели }
    =================================================================== */
-const APP_VERSION = 14; // повышать вместе с CACHE в sw.js, показывается в настройках
+const APP_VERSION = 15; // повышать вместе с CACHE в sw.js, показывается в настройках
 const PLAN = {
   defaults: { start_date: '2026-09-21', current_max: 30 },
   quick: [10, 15, 20],
@@ -1020,7 +1020,7 @@ async function runShots() {
 async function saveShots() {
   const files = cam.shots.map(s => s.file);
   if (navigator.canShare && navigator.canShare({ files })) {
-    try { await navigator.share({ files, title: 'Фото прогресса' }); toast('Сохранено'); closeCamera(); return; }
+    try { await navigator.share({ files }); toast('Сохранено'); closeCamera(); return; }
     catch (e) { if (e.name === 'AbortError') return; }
   }
   for (const f of files) { const a = document.createElement('a'); a.href = URL.createObjectURL(f.file || f); a.download = f.name; document.body.append(a); a.click(); a.remove(); }
