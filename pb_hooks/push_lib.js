@@ -1,5 +1,6 @@
 // Общие функции для push.pb.js (каждый хук PocketBase исполняется в изолированном контексте).
 const NOTIFIER = "http://127.0.0.1:8092";
+const PUSHUPS = ["classic", "weighted", "decline", "diamond", "wide", "slow"]; // пресс в цепочку не идёт
 const MIN_REPS = 10;      // столько повторов достаточно, чтобы день попал в цепочку
 const REST_WEEKDAY = 0;   // воскресенье: отдых разрешён, «последний шанс» не шлём
 
@@ -63,7 +64,7 @@ function runReminders() {
 
     const sets = $app.findRecordsByFilter("sets", "user = {:u} && date = {:d}", "", 0, 0, { u: st.get("user"), d: date });
     let total = 0;
-    for (const s of sets) total += s.getInt("reps");
+    for (const s of sets) if (PUSHUPS.includes(s.getString("type"))) total += s.getInt("reps");
 
     for (const kind of kinds) {
       let payload = null;
