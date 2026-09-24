@@ -364,7 +364,11 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
     <section class="card">
       <h2>Тест на максимум</h2>
       <p class="note" id="test-note" style="margin:0 0 12px"></p>
-      <button class="btn ghost wide" type="button" id="btn-test">Записать результат теста</button>
+      <div class="stack">
+        <button class="btn ghost wide" type="button" id="btn-test">Записать результат теста</button>
+        <button class="btn ghost wide" type="button" id="btn-report">Отчёт для Claude</button>
+      </div>
+      <p class="note">После каждого теста показывай отчёт Claude: он пересмотрит программу под новый максимум.</p>
     </section>
     <section class="card">
       <h2>Напоминания</h2>
@@ -473,6 +477,16 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
   <canvas id="cam-canvas" hidden></canvas>
 </section>
 
+<dialog id="dlg-report">
+  <h3 id="report-title">Покажи программу Claude</h3>
+  <p>Скопируй отчёт и отправь Claude в проекте pushup-tracker с просьбой пересмотреть программу под новый максимум.</p>
+  <textarea class="field" id="report-text" readonly style="height:200px;padding:12px;font-size:13px;font-family:ui-monospace,monospace;resize:none"></textarea>
+  <div class="actions" style="margin-top:14px">
+    <button class="btn ghost" type="button" data-close>Позже</button>
+    <button class="btn" type="button" id="report-copy">Скопировать</button>
+  </div>
+</dialog>
+
 <dialog id="dlg-test">
   <form method="dialog" id="test-form">
     <h3>Тест на максимум</h3>
@@ -495,7 +509,7 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
    ПЛАН ТРЕНИРОВОК — правится здесь, логика ниже от него не зависит.
    c = { max: текущий максимум, kg: вес рюкзака, goal: цель недели }
    =================================================================== */
-const APP_VERSION = 15; // повышать вместе с CACHE в sw.js, показывается в настройках
+const APP_VERSION = 16; // повышать вместе с CACHE в sw.js, показывается в настройках
 const PLAN = {
   defaults: { start_date: '2026-09-21', current_max: 30 },
   quick: [10, 15, 20],
@@ -855,13 +869,45 @@ async function updateSettings(patch, silent) {
     return false;
   }
 }
+function buildReport() {
+  const s = state.settings, today = state.today, w = weekNo(today), totals = totalsByDate();
+  const tests = [...state.tests].sort((a, b) => a.date.localeCompare(b.date));
+  const weeks = [];
+  for (let i = 1; i <= w; i++) {
+    const from = addDays(s.start_date, (i - 1) * 7), to = addDays(from, 6);
+    let sum = 0, days = 0, abs = 0;
+    for (const [d, n] of totals) if (d >= from && d <= to) { sum += n; if (n >= PLAN.minReps) days++; }
+    for (const x of state.sets) if (isAbs(x.type) && x.date >= from && x.date <= to) abs += x.reps;
+    const eff = state.workouts.filter(x => x.date >= from && x.date <= to).map(x => x.effort);
+    const st = PLAN.progression.find(p => i >= p.weeks[0] && i <= p.weeks[1]) || PLAN.progression[PLAN.progression.length - 1];
+    weeks.push(`нед ${i} (цель ${st.goal}/день): отжимания ${sum}, дней в цепочке ${days}/7, пресс ${abs}${eff.length ? `, усилие ср. ${(eff.reduce((a, b) => a + b, 0) / eff.length).toFixed(1)}/5` : ''}`);
+  }
+  const kg = [...new Set(state.sets.filter(x => x.type === 'weighted' && x.weight_kg).map(x => x.weight_kg))];
+  const st = streaks(totals);
+  return [
+    `Отчёт трекера «Тренировки», ${fmtDate(today)} (неделя ${w} программы, старт ${s.start_date})`,
+    `Тесты на максимум: ${tests.length ? tests.map(t => `${t.date} — ${t.reps}`).join('; ') : 'ещё не было'} (текущий максимум ${s.current_max})`,
+    `Рюкзак сейчас: ${s.backpack_kg || 0} кг${kg.length ? `, использовал: ${kg.sort((a, b) => a - b).join(', ')} кг` : ''}`,
+    `Стрик: ${st.cur} дней, рекорд ${st.best}, страховок ${st.freezes}`,
+    `По неделям:`, ...weeks.map(x => '  ' + x),
+    ``,
+    `Программа сейчас: тяжёлый (пн, чт) — 4 подхода с рюкзаком по ~40% от максимума; объём (вт, пт) — подходы по 65%; вариации (ср, сб) — ноги выше 3×50% + алмазные 3×40%; вс — 2×половина максимума. Цели по неделям: 80/100/120/140/140. Пресс: 2 упражнения × 3 подхода в день, множитель ×1 → ×2 к 9-й неделе.`,
+    `Просьба: пересмотреть цели, проценты и вес рюкзака под новый максимум. Изменения вносятся в объект PLAN в pb_public/index.html.`,
+  ].join('\n');
+}
+function openReport(title) {
+  $('report-title').textContent = title || 'Отчёт для Claude';
+  $('report-text').value = buildReport();
+  $('dlg-report').showModal();
+}
 async function recordTest(reps) {
   try {
     const t = await pb.collection('max_tests').create({ user: uid(), date: localDate(), reps });
     state.tests.push(t);
     await updateSettings({ current_max: reps }, true);
     await addSet(reps, { type: 'classic' });
-    toast(`Новый максимум: ${reps}`);
+    $('reward').hidden = true;
+    openReport(`Новый максимум: ${reps}. Покажи программу Claude`);
   } catch (e) {
     toast(isNetErr(e) ? 'Нет сети — тест не записан' : 'Не удалось записать тест');
   }
@@ -1463,6 +1509,12 @@ $('edit-form').addEventListener('submit', () => {
 });
 function openTest() { $('t-reps').value = ''; $('dlg-test').showModal(); }
 $('btn-test').addEventListener('click', openTest);
+$('btn-report').addEventListener('click', () => openReport());
+$('report-copy').addEventListener('click', async () => {
+  const t = $('report-text').value;
+  try { await navigator.clipboard.writeText(t); toast('Скопировано — отправь Claude'); $('dlg-report').close(); }
+  catch { $('report-text').select(); toast('Выдели текст и скопируй вручную'); }
+});
 $('test-form').addEventListener('submit', () => {
   const reps = Math.round(parseNum($('t-reps').value) || 0);
   if (reps > 0) recordTest(reps); else toast('Введи результат теста');
