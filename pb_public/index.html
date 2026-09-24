@@ -82,6 +82,20 @@ header.top .sub { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .bar i.full { background: var(--ok); }
 .hero .hint { margin: 12px 0 0; font-size: 15px; color: var(--muted); }
 .hero .hint strong { color: var(--text); font-weight: 600; }
+.rx { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.rx button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--cell); text-align: left; font-size: 15px; }
+.rx button b { font-size: 18px; font-weight: 800; min-width: 44px; }
+.rx button span { flex: 1; }
+.rx button small { color: var(--muted); }
+.rx button .tick { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 13px; flex: none; }
+.rx button.done { opacity: .55; }
+.rx button.done .tick { background: var(--ok); border-color: var(--ok); color: #fff; }
+.rx button.next { background: var(--accent-soft); outline: 2px solid var(--accent); }
+.wk { width: 100%; border-collapse: collapse; font-size: 14px; }
+.wk td { padding: 8px 0; border-top: 1px solid var(--line); vertical-align: top; }
+.wk td:first-child { width: 34px; color: var(--muted); font-weight: 600; }
+.wk tr.cur td:first-child { color: var(--accent); }
+.wk small { display: block; color: var(--muted); }
 
 .streaks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 .streaks .shield { grid-column: 1 / -1; }
@@ -235,6 +249,8 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
       <div class="count num"><b id="done">0</b><span id="goal"></span><span class="done-mark" id="done-mark" hidden>Цель взята</span></div>
       <div class="bar"><i id="bar"></i></div>
       <p class="hint" id="hint"></p>
+      <ol class="rx" id="rx"></ol>
+      <p class="note" id="rx-note"></p>
     </section>
 
     <div class="streaks">
@@ -316,6 +332,10 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
         <button class="btn wide" type="button" id="btn-push" hidden></button>
         <button class="btn ghost wide" type="button" id="btn-push-test" hidden>Прислать тестовое</button>
       </div>
+    </section>
+    <section class="card">
+      <h2>Расписание на эту неделю</h2>
+      <table class="wk" id="week-table"></table>
     </section>
     <section class="card">
       <h2>План по неделям</h2>
@@ -403,16 +423,21 @@ const PLAN = {
     heavy: {
       name: 'Тяжёлый день',
       blocks: [{ type: 'weighted', sets: 4 }],
+      // с рюкзаком ~40% от максимума, в коридоре 8–15
+      recipe: c => [{ type: 'weighted', sets: 4, reps: Math.min(15, Math.max(8, Math.round(c.max * .4))), kg: c.kg }],
       hint: c => `<strong>С рюкзаком ${c.kg} кг: 4 подхода по 8–15.</strong> Останавливайся за 1–2 повтора до отказа. Остаток до цели добери классическими. Отдых 60–90 сек.`,
     },
     volume: {
       name: 'Объём',
       blocks: [{ type: 'classic', sets: 4 }],
+      // столько подходов по 65%, сколько нужно до цели дня
+      recipe: c => { const r = Math.round(c.max * .65), n = Math.max(4, Math.ceil(c.goal / r)); return [{ type: 'classic', sets: n, reps: Math.ceil(c.goal / n) }]; },
       hint: c => `<strong>Классические: 4–5 подходов по ${Math.round(c.max * .6)}–${Math.round(c.max * .7)}.</strong> Это 60–70% от максимума (${c.max}). Отдых 60–90 сек.`,
     },
     variations: {
       name: 'Вариации',
       blocks: [{ type: 'decline', sets: 3 }, { type: 'diamond', sets: 3 }],
+      recipe: c => [{ type: 'decline', sets: 3, reps: Math.round(c.max * .5) }, { type: 'diamond', sets: 3, reps: Math.round(c.max * .4) }],
       hint: () => `<strong>Ноги на возвышении 3 подхода, затем алмазные 3 подхода.</strong> Остаток до цели любым типом. Отдых 60–90 сек.`,
     },
     light: {
@@ -420,9 +445,13 @@ const PLAN = {
       restAllowed: true, // пустой день не рвёт цепочку
       blocks: [{ type: 'classic', sets: 2 }],
       goal: c => 2 * Math.round(c.max / 2),
+      recipe: c => [{ type: 'classic', sets: 2, reps: Math.round(c.max / 2) }],
       hint: c => `<strong>2 подхода по ${Math.round(c.max / 2)}</strong> (половина максимума) либо полный отдых. Отдых цепочку не рвёт.`,
     },
   },
+
+  // Чем добирать остаток до цели дня после рецепта, и какой размер подхода
+  filler: { type: 'classic', share: .6, minLast: 5 },
 
   // 0 = воскресенье … 6 = суббота
   week: ['light', 'heavy', 'volume', 'variations', 'heavy', 'volume', 'variations'],
@@ -489,6 +518,29 @@ function dayPlan(date) {
   const st = stage(date), key = PLAN.week[dow(date)], dt = PLAN.dayTypes[key];
   const c = { max: state.settings.current_max, kg: state.settings.backpack_kg || st.kg, goal: st.goal };
   return { key, dt, st, c, goal: dt.goal ? dt.goal(c) : st.goal, hint: dt.hint(c) };
+}
+// Список подходов на день: рецепт типа дня + добор классическими до цели.
+function prescribe(plan) {
+  const rows = [];
+  for (const b of plan.dt.recipe(plan.c)) for (let i = 0; i < b.sets; i++) rows.push({ type: b.type, reps: b.reps, kg: b.kg });
+  let sum = rows.reduce((a, r) => a + r.reps, 0);
+  if (sum > plan.goal * 1.05) { // рецепт больше цели дня — ужимаем пропорционально
+    for (const r of rows) r.reps = Math.max(PLAN.filler.minLast, Math.round(r.reps * plan.goal / sum));
+    sum = rows.reduce((a, r) => a + r.reps, 0);
+  }
+  const f = PLAN.filler, size = Math.max(f.minLast, Math.round(plan.c.max * f.share));
+  while (sum < plan.goal) {
+    let reps = Math.min(size, plan.goal - sum);
+    if (plan.goal - sum - reps > 0 && plan.goal - sum - reps < f.minLast) reps = plan.goal - sum; // не оставлять хвост из 2–3 повторов
+    rows.push({ type: f.type, reps }); sum += reps;
+  }
+  return rows;
+}
+// Отмечает выполненные строки плана: сделанные подходы того же типа закрывают строки по порядку
+function markDone(rows, todaySets) {
+  const left = {};
+  for (const s of todaySets) left[s.type] = (left[s.type] || 0) + 1;
+  return rows.map(r => { const ok = (left[r.type] || 0) > 0; if (ok) left[r.type]--; return { ...r, done: ok }; });
 }
 function totalsByDate() {
   const m = new Map();
@@ -817,6 +869,11 @@ function renderToday() {
   bar.style.width = Math.min(100, done / plan.goal * 100) + '%';
   bar.classList.toggle('full', done >= plan.goal);
   $('hint').innerHTML = plan.hint;
+  const rows = markDone(prescribe(plan), todaySets);
+  const nextIdx = rows.findIndex(r => !r.done);
+  $('rx').innerHTML = rows.map((r, i) => `<li><button type="button" data-rx="${i}" class="${r.done ? 'done' : ''}${i === nextIdx ? ' next' : ''}">
+      <b class="num">${r.reps}</b><span>${PLAN.types[r.type].name}${r.kg ? ` <small>· ${r.kg} кг</small>` : ''}</span><i class="tick">${r.done ? '✓' : ''}</i></button></li>`).join('');
+  $('rx-note').textContent = nextIdx < 0 ? 'План на сегодня выполнен.' : 'Нажми на строку, чтобы записать подход как в плане.';
 
   const st = streaks(totals);
   $('streak').textContent = st.cur;
@@ -947,6 +1004,16 @@ function renderSettings() {
   $('plan-table').innerHTML = '<tr><th>Недели</th><th>Цель в день</th><th>Рюкзак</th></tr>' + PLAN.progression.map(p =>
     `<tr class="${w >= p.weeks[0] && w <= p.weeks[1] ? 'cur' : ''}"><td>${p.weeks[0]}–${p.weeks[1]}</td><td class="num">${p.goal}</td><td>${p.kgLabel}</td></tr>`).join('');
   $('plan-goal').textContent = PLAN.finalGoal;
+  const mon = mondayOf(state.today);
+  $('week-table').innerHTML = [0, 1, 2, 3, 4, 5, 6].map(i => {
+    const d = addDays(mon, i), p = dayPlan(d), rows = prescribe(p), parts = [];
+    for (const r of rows) {
+      const last = parts[parts.length - 1];
+      if (last && last.type === r.type && last.reps === r.reps) last.n++; else parts.push({ ...r, n: 1 });
+    }
+    const txt = parts.map(x => `${x.n}×${x.reps} ${PLAN.types[x.type].name.toLowerCase()}${x.kg ? ` ${x.kg} кг` : ''}`).join(' + ');
+    return `<tr class="${d === state.today ? 'cur' : ''}"><td>${DOW[dow(d)]}</td><td>${p.dt.name}, цель ${p.goal}${p.dt.restAllowed ? ' или отдых' : ''}<small>${txt}</small></td></tr>`;
+  }).join('');
   const left = PLAN.testEveryDays - diffDays(lastTestDate(), state.today);
   const last = state.tests.length ? `Последний тест: ${fmtDate(lastTestDate())}. ` : 'Тестов ещё не было. ';
   $('test-note').textContent = last + (left > 0 ? `Следующий через ${left} ${plural(left, 'день', 'дня', 'дней')}.` : 'Пора делать следующий.');
@@ -1026,6 +1093,12 @@ $('tabs').addEventListener('click', e => {
   state.tab = b.dataset.tab; render(); scrollTo(0, 0);
 });
 $('quick').innerHTML = PLAN.quick.map(n => `<button type="button" data-reps="${n}">+${n}</button>`).join('');
+$('rx').addEventListener('click', e => {
+  const b = e.target.closest('[data-rx]'); if (!b) return;
+  const r = prescribe(dayPlan(state.today))[+b.dataset.rx];
+  if (r.kg) $('weight').value = r.kg;
+  addSet(r.reps, { type: r.type });
+});
 $('quick').addEventListener('click', e => { const b = e.target.closest('[data-reps]'); if (b) addSet(+b.dataset.reps); });
 $('custom-form').addEventListener('submit', e => {
   e.preventDefault();
