@@ -215,6 +215,11 @@ nav.tabs button.on { color: var(--accent); }
 .wo-timer { text-align: center; font-size: 96px; font-weight: 800; letter-spacing: -.04em; line-height: 1.1; margin: 8px 0; }
 .wo-timer.over { color: var(--ok); }
 #wo-rest .actions, #wo-survey .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0 20px; }
+.photo-screen { min-height: calc(100dvh - 120px); display: flex; flex-direction: column; justify-content: center; text-align: center; gap: 12px; }
+.photo-screen .photo-icon { font-size: 72px; line-height: 1; }
+.photo-screen h2 { font-size: 28px; font-weight: 800; letter-spacing: -.02em; margin: 0; }
+.photo-screen p { color: var(--muted); font-size: 17px; margin: 0 0 12px; }
+.photo-screen a.btn { display: grid; place-items: center; text-decoration: none; background: var(--accent); color: var(--accent-text); }
 .effort { display: grid; gap: 8px; margin: 12px 0 8px; }
 .effort button { height: 56px; border-radius: 14px; background: var(--cell); font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 12px; padding: 0 16px; }
 .effort button b { width: 28px; height: 28px; border-radius: 50%; background: var(--text); color: var(--bg); display: grid; place-items: center; font-size: 14px; }
@@ -414,6 +419,15 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
       <div class="effort" id="effort"></div>
       <p class="note" style="text-align:center">Оценка нужна, чтобы понимать, когда добавлять вес.</p>
     </div>
+    <div id="wo-photo" hidden>
+      <div class="photo-screen">
+        <div class="photo-icon">📸</div>
+        <h2>Две фотографии</h2>
+        <p>Спереди и сбоку, в зеркале, при том же свете, что и обычно. Прямо сейчас, пока мышцы наполнены.</p>
+        <a class="btn wide" id="wo-shortcut" hidden>Открыть камеру</a>
+        <button class="btn wide" type="button" id="wo-photo-done">Сфотографировал</button>
+      </div>
+    </div>
     <ol class="rx" id="wo-rx"></ol>
   </div>
 </section>
@@ -440,13 +454,14 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
    ПЛАН ТРЕНИРОВОК — правится здесь, логика ниже от него не зависит.
    c = { max: текущий максимум, kg: вес рюкзака, goal: цель недели }
    =================================================================== */
-const APP_VERSION = 9; // повышать вместе с CACHE в sw.js, показывается в настройках
+const APP_VERSION = 10; // повышать вместе с CACHE в sw.js, показывается в настройках
 const PLAN = {
   defaults: { start_date: '2026-09-21', current_max: 30 },
   quick: [10, 15, 20],
   minReps: 10,          // «плохой день»: столько повторов хватает, чтобы день попал в цепочку
   freeze: { everyDays: 14, max: 2 }, // страховка стрика: одна за каждые 14 сделанных дней, в запасе не больше двух
   photoReminder: 'Сделай фото в зеркале 📸', // напоминание после каждого подхода
+  photoShortcut: 'Фото прогресса', // имя ярлыка в Командах, который снимает фото мимо галереи; пусто = кнопки нет
   testEveryDays: 28,    // тест на максимум раз в 4 недели
   heavy: { easyReps: 15, minSets: 4, stepKg: 2 }, // правило «+2 кг»
   // Времена напоминаний по умолчанию (будни / выходные), дальше меняются в настройках
@@ -898,6 +913,17 @@ function renderWorkout() {
   const rated = state.workouts.find(w => w.date === state.today);
   const resting = state.wo.restUntil > 0;
   const finished = idx < 0;
+  const photo = !!state.wo.photo;
+  $('wo-photo').hidden = !photo;
+  $('wo-rx').hidden = photo;
+  if (photo) {
+    $('wo-title').textContent = 'Осталось одно';
+    $('wo-set').hidden = $('wo-rest').hidden = $('wo-survey').hidden = true;
+    const a = $('wo-shortcut');
+    a.hidden = !PLAN.photoShortcut;
+    a.href = `shortcuts://run-shortcut?name=${encodeURIComponent(PLAN.photoShortcut)}`;
+    return;
+  }
   $('wo-title').textContent = finished ? 'Тренировка завершена' : `Подход ${doneN + 1} из ${total}`;
   $('wo-set').hidden = resting || finished;
   $('wo-rest').hidden = !resting || finished;
@@ -948,8 +974,7 @@ async function saveEffort(effort) {
     const rec = ex ? await pb.collection('workouts').update(ex.id, { effort }) : await pb.collection('workouts').create({ user: uid(), date: state.today, effort });
     state.workouts = state.workouts.filter(w => w.date !== state.today).concat(rec);
     saveCache();
-    toast('Записано. Хорошая работа.');
-    closeWorkout();
+    state.wo.photo = true; renderWorkout(); scrollTo(0, 0);
   } catch (e) { toast(isNetErr(e) ? 'Нет сети — оценка не сохранилась' : 'Не удалось сохранить'); }
 }
 
@@ -1210,6 +1235,7 @@ $('tabs').addEventListener('click', e => {
 $('quick').innerHTML = PLAN.quick.map(n => `<button type="button" data-reps="${n}">+${n}</button>`).join('');
 $('btn-workout').addEventListener('click', openWorkout);
 $('wo-close').addEventListener('click', closeWorkout);
+$('wo-photo-done').addEventListener('click', () => { toast('Записано. Хорошая работа.'); closeWorkout(); });
 $('wo-done').addEventListener('click', woDone);
 $('wo-skip').addEventListener('click', woSkipRest);
 $('wo-more').addEventListener('click', () => { state.wo.restUntil = Math.max(Date.now(), state.wo.restUntil) + 30000; state.wo.notified = false; store.set('pt_rest', state.wo.restUntil); renderWorkout(); });
