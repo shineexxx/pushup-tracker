@@ -82,9 +82,6 @@ header.top .sub { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .bar i.full { background: var(--ok); }
 .hero .hint { margin: 12px 0 0; font-size: 15px; color: var(--muted); }
 .hero .hint strong { color: var(--text); font-weight: 600; }
-.abs-card .count b { font-size: 40px; }
-.abs-card .daytype span:first-child { color: var(--ok); }
-.abs-card .bar i { background: var(--ok); }
 .rx { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
 .rx button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--cell); text-align: left; font-size: 15px; }
 .rx button b { font-size: 18px; font-weight: 800; min-width: 44px; }
@@ -292,14 +289,6 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
       <button class="btn wide" type="button" id="btn-workout" style="margin-top:12px"></button>
     </section>
 
-    <section class="card hero abs-card">
-      <div class="daytype"><span>Пресс</span><span id="abs-name"></span></div>
-      <div class="count num"><b id="abs-done">0</b><span id="abs-goal"></span><span class="done-mark" id="abs-mark" hidden>Сделано</span></div>
-      <div class="bar"><i id="abs-bar"></i></div>
-      <p class="hint" id="abs-hint"></p>
-      <ol class="rx" id="abs-rx"></ol>
-    </section>
-
     <div class="streaks">
       <div class="card"><b class="num" id="streak">0</b><span id="streak-label">дней<br>подряд</span></div>
       <div class="card"><b class="num" id="streak-best">0</b><span>рекорд<br>цепочки</span></div>
@@ -333,8 +322,6 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
     <div class="tiles">
       <div class="card"><b class="num" id="sum-week">0</b><span>за эту неделю</span></div>
       <div class="card"><b class="num" id="sum-all">0</b><span id="sum-all-label">за всё время</span></div>
-      <div class="card"><b class="num" id="abs-week">0</b><span>пресс за неделю</span></div>
-      <div class="card"><b class="num" id="abs-all">0</b><span>пресс за всё время</span></div>
     </div>
     <section class="card">
       <h2>Календарь</h2>
@@ -509,7 +496,7 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
    ПЛАН ТРЕНИРОВОК — правится здесь, логика ниже от него не зависит.
    c = { max: текущий максимум, kg: вес рюкзака, goal: цель недели }
    =================================================================== */
-const APP_VERSION = 16; // повышать вместе с CACHE в sw.js, показывается в настройках
+const APP_VERSION = 17; // повышать вместе с CACHE в sw.js, показывается в настройках
 const PLAN = {
   defaults: { start_date: '2026-09-21', current_max: 30 },
   quick: [10, 15, 20],
@@ -530,30 +517,6 @@ const PLAN = {
     diamond:  { name: 'Алмазные',      note: 'трицепс' },
     wide:     { name: 'Широкие',       note: 'грудь' },
     slow:     { name: 'Медленные',     note: '3 сек вниз, пауза' },
-    // пресс (group: 'abs' — не идёт в цель отжиманий и в цепочку)
-    crunch:   { name: 'Скручивания',        note: 'верх пресса', group: 'abs' },
-    legraise: { name: 'Подъёмы ног',         note: 'низ пресса, лёжа', group: 'abs' },
-    bicycle:  { name: 'Велосипед',           note: 'косые, счёт на обе стороны', group: 'abs' },
-    reverse:  { name: 'Обратные скручивания', note: 'низ пресса, таз вверх', group: 'abs' },
-    twist:    { name: 'Русские скручивания', note: 'косые, счёт на обе стороны', group: 'abs' },
-    climber:  { name: 'Альпинист',           note: 'пресс и кор, счёт на обе ноги', group: 'abs' },
-  },
-
-  // Пресс: после отжиманий, каждый день свой акцент. reps — база для недель 1–2, дальше умножается.
-  abs: {
-    week: [ // 0 = воскресенье … 6 = суббота
-      { name: 'Лёгкий', rows: [{ type: 'crunch', sets: 2, reps: 15 }] },
-      { name: 'Верх пресса', rows: [{ type: 'crunch', sets: 3, reps: 15 }, { type: 'legraise', sets: 3, reps: 10 }] },
-      { name: 'Косые', rows: [{ type: 'bicycle', sets: 3, reps: 20 }, { type: 'reverse', sets: 3, reps: 12 }] },
-      { name: 'Кор', rows: [{ type: 'twist', sets: 3, reps: 20 }, { type: 'climber', sets: 3, reps: 20 }] },
-      { name: 'Низ пресса', rows: [{ type: 'legraise', sets: 3, reps: 12 }, { type: 'crunch', sets: 3, reps: 15 }] },
-      { name: 'Косые', rows: [{ type: 'bicycle', sets: 3, reps: 20 }, { type: 'twist', sets: 3, reps: 20 }] },
-      { name: 'Низ и кор', rows: [{ type: 'reverse', sets: 3, reps: 12 }, { type: 'climber', sets: 3, reps: 20 }] },
-    ],
-    progression: [ // множитель к повторам по неделям программы
-      { weeks: [1, 2], mult: 1 }, { weeks: [3, 4], mult: 1.25 }, { weeks: [5, 6], mult: 1.5 }, { weeks: [7, 8], mult: 1.75 }, { weeks: [9, 12], mult: 2 },
-    ],
-    hint: 'Медленно, без рывков, поясница прижата к полу. Отдых 45–60 сек.',
   },
 
   dayTypes: {
@@ -658,17 +621,6 @@ function dayPlan(date) {
   const c = { max: state.settings.current_max, kg: state.settings.backpack_kg || st.kg, goal: st.goal };
   return { key, dt, st, c, goal: dt.goal ? dt.goal(c) : st.goal, hint: dt.hint(c) };
 }
-const isAbs = type => PLAN.types[type] && PLAN.types[type].group === 'abs';
-const pushSets = sets => sets.filter(s => !isAbs(s.type));
-const absSets = sets => sets.filter(s => isAbs(s.type));
-// План на пресс на дату
-function absPlan(date) {
-  const w = weekNo(date), day = PLAN.abs.week[dow(date)];
-  const st = PLAN.abs.progression.find(p => w >= p.weeks[0] && w <= p.weeks[1]) || PLAN.abs.progression[PLAN.abs.progression.length - 1];
-  const rows = [];
-  for (const b of day.rows) for (let i = 0; i < b.sets; i++) rows.push({ type: b.type, reps: Math.round(b.reps * st.mult) });
-  return { name: day.name, rows, goal: rows.reduce((a, r) => a + r.reps, 0), rest: dow(date) === 0 };
-}
 // Список подходов на день: рецепт типа дня + добор классическими до цели.
 function prescribe(plan) {
   const rows = [];
@@ -694,7 +646,7 @@ function markDone(rows, todaySets) {
 }
 function totalsByDate() {
   const m = new Map();
-  for (const s of state.sets) if (!isAbs(s.type)) m.set(s.date, (m.get(s.date) || 0) + s.reps);
+  for (const s of state.sets) m.set(s.date, (m.get(s.date) || 0) + s.reps);
   return m;
 }
 function streaks(totals) {
@@ -718,8 +670,8 @@ function streaks(totals) {
   return { cur: run, best, freezes, usedYesterday, toNext: PLAN.freeze.everyDays - earned % PLAN.freeze.everyDays };
 }
 function autoType(todaySets, plan) {
-  // первый невыполненный подход из плана дня (отжимания, потом пресс)
-  const rows = markDone([...prescribe(plan), ...absPlan(state.today).rows], todaySets);
+  // первый невыполненный подход из плана дня
+  const rows = markDone(prescribe(plan), todaySets);
   const next = rows.find(r => !r.done);
   return next ? next.type : 'classic';
 }
@@ -814,15 +766,11 @@ async function addSet(reps, extra = {}) {
 let rewardTimer;
 function showReward(rec) {
   const today = localDate(), plan = dayPlan(today);
-  const abs = isAbs(rec.type);
-  const todaySets = (abs ? absSets : pushSets)(state.sets.filter(s => s.date === today));
-  const goal = abs ? absPlan(today).goal : plan.goal;
-  const done = todaySets.reduce((a, s) => a + s.reps, 0), left = goal - done;
+  const todaySets = state.sets.filter(s => s.date === today);
+  const done = todaySets.reduce((a, s) => a + s.reps, 0), left = plan.goal - done;
   const n = todaySets.length;
   let head, sub;
-  if (abs && left <= 0 && done - rec.reps < goal) { head = `Пресс на сегодня сделан: ${done}`; sub = `${n} ${plural(n, 'подход', 'подхода', 'подходов')}`; }
-  else if (abs) { head = `+${rec.reps} ${PLAN.types[rec.type].name.toLowerCase()}`; sub = left > 0 ? `Пресс: осталось ${left}` : `Сверх плана на ${-left}`; }
-  else if (left <= 0 && done - rec.reps < plan.goal) { head = `Цель дня взята: ${done}`; sub = n === 1 ? 'Одним подходом. Серьёзно.' : `${n} ${plural(n, 'подход', 'подхода', 'подходов')}, всё сверху — в копилку`; }
+  if (left <= 0 && done - rec.reps < plan.goal) { head = `Цель дня взята: ${done}`; sub = n === 1 ? 'Одним подходом. Серьёзно.' : `${n} ${plural(n, 'подход', 'подхода', 'подходов')}, всё сверху — в копилку`; }
   else if (left <= 0) { head = `+${rec.reps}, уже ${done}`; sub = `Сверх цели на ${-left}`; }
   else if (done >= PLAN.minReps && done - rec.reps < PLAN.minReps) { head = `+${rec.reps} — день в цепочке`; sub = `До цели осталось ${left}`; }
   else { head = `+${rec.reps} записано`; sub = `Осталось ${left} до цели${n > 1 ? ` · подход ${n}` : ''}`; }
@@ -875,12 +823,11 @@ function buildReport() {
   const weeks = [];
   for (let i = 1; i <= w; i++) {
     const from = addDays(s.start_date, (i - 1) * 7), to = addDays(from, 6);
-    let sum = 0, days = 0, abs = 0;
+    let sum = 0, days = 0;
     for (const [d, n] of totals) if (d >= from && d <= to) { sum += n; if (n >= PLAN.minReps) days++; }
-    for (const x of state.sets) if (isAbs(x.type) && x.date >= from && x.date <= to) abs += x.reps;
     const eff = state.workouts.filter(x => x.date >= from && x.date <= to).map(x => x.effort);
     const st = PLAN.progression.find(p => i >= p.weeks[0] && i <= p.weeks[1]) || PLAN.progression[PLAN.progression.length - 1];
-    weeks.push(`нед ${i} (цель ${st.goal}/день): отжимания ${sum}, дней в цепочке ${days}/7, пресс ${abs}${eff.length ? `, усилие ср. ${(eff.reduce((a, b) => a + b, 0) / eff.length).toFixed(1)}/5` : ''}`);
+    weeks.push(`нед ${i} (цель ${st.goal}/день): отжимания ${sum}, дней в цепочке ${days}/7${eff.length ? `, усилие ср. ${(eff.reduce((a, b) => a + b, 0) / eff.length).toFixed(1)}/5` : ''}`);
   }
   const kg = [...new Set(state.sets.filter(x => x.type === 'weighted' && x.weight_kg).map(x => x.weight_kg))];
   const st = streaks(totals);
@@ -891,7 +838,7 @@ function buildReport() {
     `Стрик: ${st.cur} дней, рекорд ${st.best}, страховок ${st.freezes}`,
     `По неделям:`, ...weeks.map(x => '  ' + x),
     ``,
-    `Программа сейчас: тяжёлый (пн, чт) — 4 подхода с рюкзаком по ~40% от максимума; объём (вт, пт) — подходы по 65%; вариации (ср, сб) — ноги выше 3×50% + алмазные 3×40%; вс — 2×половина максимума. Цели по неделям: 80/100/120/140/140. Пресс: 2 упражнения × 3 подхода в день, множитель ×1 → ×2 к 9-й неделе.`,
+    `Программа сейчас: тяжёлый (пн, чт) — 4 подхода с рюкзаком по ~40% от максимума; объём (вт, пт) — подходы по 65%; вариации (ср, сб) — ноги выше 3×50% + алмазные 3×40%; вс — 2×половина максимума. Цели по неделям: 80/100/120/140/140.`,
     `Просьба: пересмотреть цели, проценты и вес рюкзака под новый максимум. Изменения вносятся в объект PLAN в pb_public/index.html.`,
   ].join('\n');
 }
@@ -1099,7 +1046,7 @@ function closeWorkout() {
 }
 function woRows() {
   const plan = dayPlan(state.today);
-  return markDone([...prescribe(plan), ...absPlan(state.today).rows], state.sets.filter(s => s.date === state.today));
+  return markDone(prescribe(plan), state.sets.filter(s => s.date === state.today));
 }
 function renderWorkout() {
   if (!state.wo) return;
@@ -1176,21 +1123,9 @@ function currentType() {
 }
 function renderToday() {
   const today = state.today, plan = dayPlan(today);
-  const allToday = state.sets.filter(s => s.date === today);
-  const todaySets = pushSets(allToday);
+  const todaySets = state.sets.filter(s => s.date === today);
   const done = todaySets.reduce((a, s) => a + s.reps, 0);
   const totals = totalsByDate();
-
-  // Пресс
-  const ap = absPlan(today), aSets = absSets(allToday), aDone = aSets.reduce((a, s) => a + s.reps, 0);
-  $('abs-name').textContent = ap.name;
-  $('abs-done').textContent = aDone; $('abs-goal').textContent = `/ ${ap.goal}`;
-  $('abs-mark').hidden = aDone < ap.goal;
-  $('abs-bar').style.width = Math.min(100, aDone / ap.goal * 100) + '%';
-  $('abs-hint').innerHTML = `<strong>${ap.rest ? 'Лёгкий день, можно пропустить.' : 'После отжиманий.'}</strong> ${PLAN.abs.hint}`;
-  const aRows = markDone(ap.rows, aSets), aNext = aRows.findIndex(r => !r.done);
-  $('abs-rx').innerHTML = aRows.map((r, i) => `<li><button type="button" data-arx="${i}" class="${r.done ? 'done' : ''}${i === aNext ? ' next' : ''}">
-      <b class="num">${r.reps}</b><span>${PLAN.types[r.type].name}</span><i class="tick">${r.done ? '✓' : ''}</i></button></li>`).join('');
 
   $('day-type').textContent = plan.dt.name;
   $('day-week').textContent = diffDays(state.settings.start_date, today) < 0
@@ -1208,9 +1143,9 @@ function renderToday() {
       <b class="num">${r.reps}</b><span>${PLAN.types[r.type].name}${r.kg ? ` <small>· ${r.kg} кг</small>` : ''}</span><i class="tick">${r.done ? '✓' : ''}</i></button></li>`).join('');
   $('rx-note').textContent = nextIdx < 0 ? 'План на сегодня выполнен.' : 'Нажми на строку, чтобы записать подход как в плане.';
   const rated = state.workouts.some(w => w.date === today);
-  const bw = $('btn-workout'), allDone = nextIdx < 0 && aNext < 0;
-  bw.hidden = allDone && rated;
-  bw.textContent = allDone ? 'Оценить тренировку' : allToday.length ? 'Продолжить тренировку' : 'Запустить тренировку';
+  const bw = $('btn-workout');
+  bw.hidden = nextIdx < 0 && rated;
+  bw.textContent = nextIdx < 0 ? 'Оценить тренировку' : todaySets.length ? 'Продолжить тренировку' : 'Запустить тренировку';
 
   const st = streaks(totals);
   $('streak').textContent = st.cur;
@@ -1256,7 +1191,7 @@ function renderToday() {
   if (document.activeElement !== $('weight')) $('weight').value = state.settings.backpack_kg || plan.st.kg;
   $('weight-plan').textContent = `по плану: ${plan.st.kgLabel}`;
 
-  $('sets').innerHTML = allToday.length ? allToday.map((s, i) => `
+  $('sets').innerHTML = todaySets.length ? todaySets.map((s, i) => `
     <li>
       <span class="n num">${i + 1}</span>
       <div class="main"><b class="num">${s.reps}</b><span>${PLAN.types[s.type].name}${s.weight_kg ? ` · ${s.weight_kg} кг` : ''}</span>${s._pending ? '<div class="pend">ждёт отправки</div>' : ''}</div>
@@ -1290,9 +1225,6 @@ function renderHistory() {
   for (const [d, n] of totals) { all += n; if (d >= thisMon) weekSum += n; }
   $('sum-week').textContent = weekSum;
   $('sum-all').textContent = all.toLocaleString('ru-RU');
-  let absWeek = 0, absAll = 0;
-  for (const s of state.sets) if (isAbs(s.type)) { absAll += s.reps; if (s.date >= thisMon) absWeek += s.reps; }
-  $('abs-week').textContent = absWeek; $('abs-all').textContent = absAll.toLocaleString('ru-RU');
   const activeDays = [...totals.values()].filter(n => n > 0).length;
   $('sum-all-label').textContent = `за всё время · ${activeDays} ${plural(activeDays, 'день', 'дня', 'дней')}`;
 
@@ -1318,11 +1250,10 @@ function renderHistory() {
   $('heat').innerHTML = h;
   const sd = state.selDay;
   if (sd) {
-    const ds = pushSets(state.sets.filter(s => s.date === sd)), n = totals.get(sd) || 0;
-    const an = absSets(state.sets.filter(s => s.date === sd)).reduce((a, s) => a + s.reps, 0);
+    const ds = state.sets.filter(s => s.date === sd), n = totals.get(sd) || 0;
     const w = state.workouts.find(x => x.date === sd);
     $('heat-info').textContent = n
-      ? `${fmtDate(sd)}: ${n} ${plural(n, 'повтор', 'повтора', 'повторов')} за ${ds.length} ${plural(ds.length, 'подход', 'подхода', 'подходов')} (${ds.map(s => s.reps).join(' + ')})${an ? ` · пресс ${an}` : ''}${w ? ` · ${PLAN.effort[w.effort - 1].toLowerCase()}` : ''}`
+      ? `${fmtDate(sd)}: ${n} ${plural(n, 'повтор', 'повтора', 'повторов')} за ${ds.length} ${plural(ds.length, 'подход', 'подхода', 'подходов')} (${ds.map(s => s.reps).join(' + ')})${w ? ` · ${PLAN.effort[w.effort - 1].toLowerCase()}` : ''}`
       : `${fmtDate(sd)}: ${sd > today ? 'ещё впереди' : 'без отжиманий'}`;
   } else $('heat-info').textContent = 'Нажми на день, чтобы увидеть подходы. Справа — сумма за неделю.';
 
@@ -1354,10 +1285,7 @@ function renderSettings() {
       if (last && last.type === r.type && last.reps === r.reps) last.n++; else parts.push({ ...r, n: 1 });
     }
     const txt = parts.map(x => `${x.n}×${x.reps} ${PLAN.types[x.type].name.toLowerCase()}${x.kg ? ` ${x.kg} кг` : ''}`).join(' + ');
-    const ap = absPlan(d), aparts = [];
-    for (const r of ap.rows) { const last = aparts[aparts.length - 1]; if (last && last.type === r.type) last.n++; else aparts.push({ ...r, n: 1 }); }
-    const atxt = aparts.map(x => `${x.n}×${x.reps} ${PLAN.types[x.type].name.toLowerCase()}`).join(' + ');
-    return `<tr class="${d === state.today ? 'cur' : ''}"><td>${DOW[dow(d)]}</td><td>${p.dt.name}, цель ${p.goal}${p.dt.restAllowed ? ' или отдых' : ''}<small>${txt}</small><small>Пресс · ${ap.name.toLowerCase()}: ${atxt}</small></td></tr>`;
+    return `<tr class="${d === state.today ? 'cur' : ''}"><td>${DOW[dow(d)]}</td><td>${p.dt.name}, цель ${p.goal}${p.dt.restAllowed ? ' или отдых' : ''}<small>${txt}</small></td></tr>`;
   }).join('');
   const left = PLAN.testEveryDays - diffDays(lastTestDate(), state.today);
   const last = state.tests.length ? `Последний тест: ${fmtDate(lastTestDate())}. ` : 'Тестов ещё не было. ';
@@ -1451,11 +1379,6 @@ $('wo-skip').addEventListener('click', woSkipRest);
 $('wo-more').addEventListener('click', () => { state.wo.restUntil = Math.max(Date.now(), state.wo.restUntil) + 30000; state.wo.notified = false; store.set('pt_rest', state.wo.restUntil); renderWorkout(); });
 $('wo-set').addEventListener('click', e => { const b = e.target.closest('[data-d]'); if (b) { state.wo.reps = Math.max(1, (state.wo.reps || 0) + +b.dataset.d); renderWorkout(); } });
 $('effort').addEventListener('click', e => { const b = e.target.closest('[data-effort]'); if (b) saveEffort(+b.dataset.effort); });
-$('abs-rx').addEventListener('click', e => {
-  const b = e.target.closest('[data-arx]'); if (!b) return;
-  const r = absPlan(state.today).rows[+b.dataset.arx];
-  addSet(r.reps, { type: r.type });
-});
 $('rx').addEventListener('click', e => {
   const b = e.target.closest('[data-rx]'); if (!b) return;
   const r = prescribe(dayPlan(state.today))[+b.dataset.rx];
