@@ -385,6 +385,11 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
       <p class="note" id="plan-goal"></p>
     </section>
     <section class="card">
+      <h2>Apple Watch</h2>
+      <label class="form-row" style="cursor:pointer"><span>Кнопка «Запустить на часах»</span><input type="checkbox" id="watch-on" style="width:24px;height:24px;accent-color:var(--accent)"></label>
+      <p class="note" id="watch-note" style="margin:4px 0 0"></p>
+    </section>
+    <section class="card">
       <h2>Данные</h2>
       <div class="stack">
         <button class="btn ghost wide" type="button" id="btn-cam">Фото прогресса</button>
@@ -423,6 +428,7 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
   <header><span id="wo-title"></span><button type="button" id="wo-close" aria-label="Закрыть">✕</button></header>
   <div class="wo-body">
     <div id="wo-set">
+      <a class="btn ghost wide" id="wo-watch" hidden style="display:grid;place-items:center;text-decoration:none;margin-bottom:12px">⌚ Запустить на часах</a>
       <p class="wo-kind" id="wo-kind"></p>
       <div class="wo-reps"><button type="button" data-d="-1">−</button><b class="num" id="wo-reps">0</b><button type="button" data-d="1">+</button></div>
       <p class="note" style="text-align:center">повторов в этом подходе</p>
@@ -499,13 +505,14 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
    ПЛАН ТРЕНИРОВОК — правится здесь, логика ниже от него не зависит.
    c = { max: текущий максимум, kg: вес рюкзака, goal: цель недели }
    =================================================================== */
-const APP_VERSION = 18; // повышать вместе с CACHE в sw.js, показывается в настройках
+const APP_VERSION = 19; // повышать вместе с CACHE в sw.js, показывается в настройках
 const PLAN = {
   defaults: { start_date: '2026-09-21', current_max: 30 },
   quick: [10, 15, 20],
   minReps: 10,          // «плохой день»: столько повторов хватает, чтобы день попал в цепочку
   freeze: { everyDays: 14, max: 2 }, // страховка стрика: одна за каждые 14 сделанных дней, в запасе не больше двух
   photoReminder: 'Сделай фото в зеркале 📸', // напоминание после каждого подхода
+  watchShortcut: 'Тренировка на часах', // ярлык в «Командах», который стартует тренировку на Apple Watch
   photos: { countdown: 5, poses: ['Напряги грудь', 'Напряги руки'] }, // съёмка в приложении: таймер и кадры
   testEveryDays: 28,    // тест на максимум раз в 4 недели
   heavy: { easyReps: 15, minSets: 4, stepKg: 2 }, // правило «+2 кг»
@@ -1092,6 +1099,9 @@ function renderWorkout() {
     if (left <= 0 && !state.wo.notified) { state.wo.notified = true; notifyRestOver(r); }
   } else {
     const r = rows[idx];
+    // кнопку для часов показываем, пока не сделан ни один подход за день
+    $('wo-watch').hidden = !store.get('pt_watch', false) || doneN > 0 || state.wo.watchStarted;
+    $('wo-watch').href = `shortcuts://run-shortcut?name=${encodeURIComponent(PLAN.watchShortcut)}`;
     if (state.wo.reps === null) state.wo.reps = r.reps;
     $('wo-kind').textContent = `${PLAN.types[r.type].name}${r.kg ? ` · ${r.kg} кг` : ''}`;
     $('wo-reps').textContent = state.wo.reps;
@@ -1304,6 +1314,8 @@ function renderSettings() {
   const left = PLAN.testEveryDays - diffDays(lastTestDate(), state.today);
   const last = state.tests.length ? `Последний тест: ${fmtDate(lastTestDate())}. ` : 'Тестов ещё не было. ';
   $('test-note').textContent = last + (left > 0 ? `Следующий через ${left} ${plural(left, 'день', 'дня', 'дней')}.` : 'Пора делать следующий.');
+  $('watch-on').checked = store.get('pt_watch', false);
+  $('watch-note').innerHTML = `Кнопка в начале тренировки открывает ярлык <b>«${PLAN.watchShortcut}»</b>. Собери его один раз: «Команды» → «+» → назови «${PLAN.watchShortcut}» → добавь действие, которое начинает тренировку «Функциональная силовая тренировка» на часах.`;
   renderPush();
   $('account').textContent = (pb.authStore.record ? `Вход выполнен: ${pb.authStore.record.email}. ` : '') + `Версия ${APP_VERSION}`;
 }
@@ -1387,6 +1399,8 @@ $('tabs').addEventListener('click', e => {
 $('quick').innerHTML = PLAN.quick.map(n => `<button type="button" data-reps="${n}">+${n}</button>`).join('');
 $('btn-workout').addEventListener('click', openWorkout);
 $('wo-close').addEventListener('click', closeWorkout);
+$('wo-watch').addEventListener('click', () => { state.wo.watchStarted = true; setTimeout(renderWorkout, 500); });
+$('watch-on').addEventListener('change', e => { store.set('pt_watch', e.target.checked); toast(e.target.checked ? 'Кнопка для часов включена' : 'Кнопка для часов выключена'); });
 // Отмена подхода в режиме тренировки: отмеченная строка списка или кнопка в отдыхе (последний подход)
 async function woUndo(i) {
   const rows = woRows();
