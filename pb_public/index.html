@@ -47,6 +47,12 @@
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
+/* Документ не прокручивается: в iOS-приложении с экрана «Домой» прокрутка body с отскоком
+   сдвигает закреплённую нижнюю панель. Прокручивается только #scroll. */
+html, body { height: 100%; overflow: hidden; }
+#scroll { position: fixed; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
+/* Непрозрачная полоска под часами и батареей, чтобы контент не заезжал под статус-бар */
+body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); background: var(--bg); z-index: 20; }
 body {
   font: 16px/1.4 -apple-system, BLINKMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
   -webkit-text-size-adjust: 100%;
@@ -272,6 +278,7 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
   </form>
 </section>
 
+<div id="scroll">
 <div id="app" hidden>
   <header class="top">
     <h1 id="title">Сегодня</h1>
@@ -402,6 +409,7 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
     </section>
   </main>
 </div>
+</div>
 
 <nav class="tabs" id="tabs" hidden><div>
   <button data-tab="today" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Сегодня</button>
@@ -505,7 +513,7 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
    ПЛАН ТРЕНИРОВОК — правится здесь, логика ниже от него не зависит.
    c = { max: текущий максимум, kg: вес рюкзака, goal: цель недели }
    =================================================================== */
-const APP_VERSION = 19; // повышать вместе с CACHE в sw.js, показывается в настройках
+const APP_VERSION = 20; // повышать вместе с CACHE в sw.js, показывается в настройках
 const PLAN = {
   defaults: { start_date: '2026-09-21', current_max: 30 },
   quick: [10, 15, 20],
@@ -798,7 +806,7 @@ function showReward(rec) {
   $('reward').innerHTML = `<button type="button" class="reward-undo" data-undo="${rec.id}">Отменить</button><b>${head}</b><span>${sub}</span><span class="photo">${PLAN.photoReminder}</span>`;
   $('reward').hidden = false;
   if (navigator.vibrate) navigator.vibrate(left <= 0 ? [30, 60, 30, 60, 60] : [15, 40, 15]);
-  scrollTo({ top: 0, behavior: 'smooth' });
+  $('scroll').scrollTo({ top: 0, behavior: 'smooth' });
   clearTimeout(rewardTimer); rewardTimer = setTimeout(() => { $('reward').hidden = true; }, 15000);
 }
 async function deleteSet(id) {
@@ -1136,7 +1144,7 @@ async function saveEffort(effort) {
     const rec = ex ? await pb.collection('workouts').update(ex.id, { effort }) : await pb.collection('workouts').create({ user: uid(), date: state.today, effort });
     state.workouts = state.workouts.filter(w => w.date !== state.today).concat(rec);
     saveCache();
-    state.wo.photo = true; renderWorkout(); scrollTo(0, 0);
+    state.wo.photo = true; renderWorkout(); $('workout').scrollTo(0, 0);
   } catch (e) { toast(isNetErr(e) ? 'Нет сети — оценка не сохранилась' : 'Не удалось сохранить'); }
 }
 
@@ -1394,7 +1402,7 @@ async function importData(file) {
 /* ============================ События ============================ */
 $('tabs').addEventListener('click', e => {
   const b = e.target.closest('[data-tab]'); if (!b) return;
-  state.tab = b.dataset.tab; render(); scrollTo(0, 0);
+  state.tab = b.dataset.tab; render(); $('scroll').scrollTo(0, 0);
 });
 $('quick').innerHTML = PLAN.quick.map(n => `<button type="button" data-reps="${n}">+${n}</button>`).join('');
 $('btn-workout').addEventListener('click', openWorkout);
