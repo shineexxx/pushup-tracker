@@ -91,6 +91,7 @@ header.top .sub { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .rx { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
 .rx button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--cell); text-align: left; font-size: 15px; }
 .rx button b { font-size: 18px; font-weight: 800; min-width: 44px; }
+.rx .plan-was { display: block; font-size: 11px; font-weight: 500; color: var(--muted); margin-top: -2px; }
 .rx button span { flex: 1; }
 .rx button small { color: var(--muted); }
 .rx button .tick { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 13px; flex: none; }
@@ -513,7 +514,7 @@ dialog p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
    ПЛАН ТРЕНИРОВОК — правится здесь, логика ниже от него не зависит.
    c = { max: текущий максимум, kg: вес рюкзака, goal: цель недели }
    =================================================================== */
-const APP_VERSION = 20; // повышать вместе с CACHE в sw.js, показывается в настройках
+const APP_VERSION = 21; // повышать вместе с CACHE в sw.js, показывается в настройках
 const PLAN = {
   defaults: { start_date: '2026-09-21', current_max: 30 },
   quick: [10, 15, 20],
@@ -658,15 +659,19 @@ function prescribe(plan) {
 }
 // Отмечает выполненные строки плана: сделанные подходы того же типа закрывают строки по порядку
 function markDone(rows, todaySets) {
-  const left = {};
-  for (const s of todaySets) left[s.type] = (left[s.type] || 0) + 1;
-  return rows.map(r => { const ok = (left[r.type] || 0) > 0; if (ok) left[r.type]--; return { ...r, done: ok }; });
+  // каждой строке плана — записанный подход того же типа по порядку; в строке остаётся ссылка на него
+  const queue = {};
+  for (const s of todaySets) (queue[s.type] = queue[s.type] || []).push(s);
+  return rows.map(r => { const set = (queue[r.type] || []).shift(); return { ...r, done: !!set, set }; });
+}
+// Число в строке плана: для выполненной — сколько сделал на самом деле, с пометкой плана, если отличается
+function rowReps(r) {
+  if (!r.done || r.set.reps === r.reps) return `${r.done ? r.set.reps : r.reps}`;
+  return `${r.set.reps}<small class="plan-was">из ${r.reps}</small>`;
 }
 // Записанный подход, который закрывает выполненную строку плана i (k-я строка типа ↔ k-й подход этого типа за день)
 function setForRow(rows, i) {
-  const r = rows[i]; if (!r || !r.done) return null;
-  const k = rows.slice(0, i).filter(x => x.type === r.type).length;
-  return state.sets.filter(s => s.date === state.today && s.type === r.type)[k] || null;
+  return rows[i] && rows[i].done ? rows[i].set : null;
 }
 async function undoRow(rows, i) {
   const set = setForRow(rows, i); if (!set) return;
@@ -1115,7 +1120,7 @@ function renderWorkout() {
     $('wo-reps').textContent = state.wo.reps;
   }
   $('wo-rx').innerHTML = rows.map((r, i) => `<li><button type="button" data-worx="${i}" class="${r.done ? 'done' : ''}${i === idx ? ' next' : ''}"${r.done ? '' : ' disabled'}>
-      <b class="num">${r.reps}</b><span>${PLAN.types[r.type].name}${r.kg ? ` <small>· ${r.kg} кг</small>` : ''}</span><i class="tick">${r.done ? '✓' : ''}</i></button></li>`).join('');
+      <b class="num">${rowReps(r)}</b><span>${PLAN.types[r.type].name}${r.kg ? ` <small>· ${r.kg} кг</small>` : ''}</span><i class="tick">${r.done ? '✓' : ''}</i></button></li>`).join('');
 }
 async function woDone() {
   const rows = woRows(), idx = rows.findIndex(r => !r.done); if (idx < 0) return;
@@ -1172,7 +1177,7 @@ function renderToday() {
   const rows = markDone(prescribe(plan), todaySets);
   const nextIdx = rows.findIndex(r => !r.done);
   $('rx').innerHTML = rows.map((r, i) => `<li><button type="button" data-rx="${i}" class="${r.done ? 'done' : ''}${i === nextIdx ? ' next' : ''}">
-      <b class="num">${r.reps}</b><span>${PLAN.types[r.type].name}${r.kg ? ` <small>· ${r.kg} кг</small>` : ''}</span><i class="tick">${r.done ? '✓' : ''}</i></button></li>`).join('');
+      <b class="num">${rowReps(r)}</b><span>${PLAN.types[r.type].name}${r.kg ? ` <small>· ${r.kg} кг</small>` : ''}</span><i class="tick">${r.done ? '✓' : ''}</i></button></li>`).join('');
   $('rx-note').textContent = nextIdx < 0 ? 'План на сегодня выполнен.' : 'Нажми на строку, чтобы записать подход. Нажми на отмеченную, чтобы отменить.';
   const rated = state.workouts.some(w => w.date === today);
   const bw = $('btn-workout');
